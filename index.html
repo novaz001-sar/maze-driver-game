@@ -6,17 +6,22 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v4.9 抖动修复版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v5.2 清晰地面版 ##
     ============================================================================
 
     这是一款面向中老年用户的、极简交互的第一人称3D迷宫驾驶游戏。
-    v4.9 版本修复了用户报告的在每次移动后画面会短暂抖动的问题。
+    v5.2 版本根据用户反馈，优化了地面纹理的显示效果，使其更加清晰锐利。
 
-    ### v4.9 更新内容 (What's New in v4.9)
-    1.  **抖动问题修复 (Jitter Fix)**: 
-        * 重构了控制玩家移动和转向的核心逻辑。
-        * 移除了先前用于计时的 `setTimeout`，将整个动作序列（转向后移动）统一由与画面刷新同步的 `requestAnimationFrame` 循环管理。
-        * 这确保了动作之间的过渡完全平滑，消除了移动后可能出现的画面抖动或跳动现象。
+    ### v5.2 更新内容 (What's New in v5.2)
+    1.  **清晰瓷砖地面 (Sharper Tiled Ground)**:
+        * 调整了地面纹理的渲染方式，禁用了默认的模糊/平滑效果 (`LinearFilter`)。
+        * 现在地面瓷砖的边缘变得非常清晰锐利 (`NearestFilter`)，呈现像素风格，有效避免了因纹理模糊可能导致的视觉疲劳或眩晕感。
+    2.  **全新瓷砖地面 (New Tiled Ground)**:
+        * 地面从原来的纯色更新为黑白棋盘格瓷砖纹理。这种纹理不仅美观，还能更好地帮助玩家感知移动和空间尺度。
+    3.  **终点特殊纹理 (Goal Wall Texture)**: 
+        * 在每个关卡的终点格子周围的墙面上，部署了用户提供的精美花卉浮雕纹理。这为终点创造了一个独特且华丽的视觉标志。
+    4.  **动态天空盒 (Dynamic Skybox)**:
+        * 游戏场景的天空不再是单调的纯色，而是增加了一个带有动态白云的天空背景，使整个世界看起来更加开阔和真实。
 
     ### 玩法说明 (How to Play)
     1.  **启动游戏**: 选择语言，输入昵称和性别，进入主菜单。
@@ -51,7 +56,7 @@
             --highlight-color: #28a745; /* Green */
             --wall-color-ns: #f5deb3; /* Wheat - for North-South walls */
             --wall-color-ew: #faf0e6; /* Linen - slightly lighter for East-West walls */
-            --floor-color: #6c757d; /* Dark Slate Grey for contrast */
+            --floor-color: #E0E0E0; /* Fallback color, not really used with texture */
             --landmark-color: #ffc107; /* Amber */
             --start-color: #007bff;
             --goal-color: #dc3545; /* Red */
@@ -466,7 +471,6 @@
         let playerChoices = 0;
         let optimalChoices = 0;
         
-        // MODIFICATION: Removed isMoving and isTurning booleans
         let targetPosition = new THREE.Vector3();
         let targetRotation = new THREE.Euler();
         let previewAngle;
@@ -476,8 +480,8 @@
         const keyState = { 'a': false, 'd': false, 'space': false, 'escape': false };
         let keyDebounce = false;
 
-        let wallMaterialNS, wallMaterialEW, floorMaterial, landmarkMaterial;
-        let hemisphereLight;
+        let wallMaterialNS, wallMaterialEW, floorMaterial, landmarkMaterial, goalWallMaterial;
+        let hemisphereLight, dirLight; // DEBUG: Moved dirLight to global scope
 
         let currentLanguage = 'zh';
 
@@ -534,7 +538,7 @@
         };
 
         // ====================================================================
-        // 关卡数据 (Level Data) - MODIFIED: Replaced with mazes_v4.js
+        // 关卡数据 (Level Data) - mazes_v4.js
         // ====================================================================
         const MAZE_DATA = [
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'E',1,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1],[1,0,0,0,1,0,1,0,1,0,1,0,0,'S',1],[1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,1,0,1,0,1,0,1],[1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
@@ -594,8 +598,18 @@
         
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(getComputedStyle(document.body).getPropertyValue('--bg-color'));
-            scene.fog = new THREE.Fog(scene.background, 1, TILE_SIZE * 15);
+            // MODIFICATION: Set up skybox
+            const loader = new THREE.CubeTextureLoader();
+            const texture = loader.load([
+                'https://threejs.org/examples/textures/cube/skyboxsun25deg/px.jpg',
+                'https://threejs.org/examples/textures/cube/skyboxsun25deg/nx.jpg',
+                'https://threejs.org/examples/textures/cube/skyboxsun25deg/py.jpg',
+                'https://threejs.org/examples/textures/cube/skyboxsun25deg/ny.jpg',
+                'https://threejs.org/examples/textures/cube/skyboxsun25deg/pz.jpg',
+                'https://threejs.org/examples/textures/cube/skyboxsun25deg/nz.jpg',
+            ]);
+            scene.background = texture;
+            scene.fog = new THREE.Fog(0xcccccc, TILE_SIZE * 5, TILE_SIZE * 20);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -604,11 +618,12 @@
             document.getElementById('game-container').appendChild(renderer.domElement);
             clock = new THREE.Clock();
 
-            hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3);
+            hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
             hemisphereLight.position.set(0, 20, 0);
             scene.add(hemisphereLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+            // DEBUG: Assign to global variable
+            dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
             dirLight.position.set(-1, 1.75, 1);
             dirLight.position.multiplyScalar(30);
             scene.add(dirLight);
@@ -790,7 +805,7 @@
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
             if(goalMarker) scene.remove(goalMarker);
 
-            createMazeMesh(level.grid);
+            createMazeMesh(level.grid, level.goal);
             placeRoadsideObjects(level.grid);
             createGoalMarker(level.goal);
             
@@ -949,11 +964,6 @@
             prompt.innerHTML = `${lang.select}: ${turnText}` + (helperToggle === 'on' ? `<br><span style="font-size: 0.8em;">${lang.helperText}</span>` : '');
         }
 
-        // --- MODIFICATION START: Refactored movement logic ---
-
-        /**
-         * Sets up the next move after a turn is complete or if no turn is needed.
-         */
         function setupMove() {
             const gridPos = worldToGrid(player.position);
             const moveVector = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
@@ -961,10 +971,9 @@
             const nextGridZ = gridPos.z + Math.round(moveVector.z);
             const level = levels[currentLevelIndex];
 
-            // Check for wall collision
             if (nextGridZ < 0 || nextGridZ >= level.grid.length || nextGridX < 0 || nextGridX >= level.grid[0].length || level.grid[nextGridZ][nextGridX] === 0) {
                 cameraShake();
-                gameState = 'AT_INTERSECTION'; // Go back to waiting for input
+                gameState = 'AT_INTERSECTION'; 
             } else {
                 playerChoices++;
                 document.getElementById('choice-prompt').style.display = 'none';
@@ -976,15 +985,11 @@
             }
         }
 
-        /**
-         * Initiates the turning and moving sequence.
-         */
         function confirmChoice() {
             if (gameState !== 'AT_INTERSECTION') return;
 
             targetRotation.y = previewAngle;
 
-            // Check if a turn is needed. If facing the correct direction, move immediately.
             let angleDiff = targetRotation.y - player.rotation.y;
             while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
             while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
@@ -995,7 +1000,6 @@
                 gameState = 'TURNING';
             }
         }
-        // --- MODIFICATION END ---
         
         function showLevelComplete() {
             const modal = document.getElementById('level-complete-modal');
@@ -1065,8 +1069,14 @@
             
             const dayNightCycle = (Math.sin(elapsedTime * 0.1) + 1) / 2;
             const nightIntensity = Math.max(0, 1 - dayNightCycle * 4);
-            scene.background.setHSL(0.6, 0.7, dayNightCycle * 0.4 + 0.3);
-            hemisphereLight.intensity = dayNightCycle * 2.5 + 0.5;
+            
+            if (scene.background.isCubeTexture) {
+                hemisphereLight.intensity = dayNightCycle * 1.5 + 0.2;
+                dirLight.intensity = dayNightCycle * 2.0 + 0.2;
+            } else {
+                scene.background.setHSL(0.6, 0.7, dayNightCycle * 0.4 + 0.3);
+                hemisphereLight.intensity = dayNightCycle * 2.5 + 0.5;
+            }
             
             sceneryGroup.children.forEach(sceneryObject => {
                 const light = sceneryObject.getObjectByName('lampLight');
@@ -1081,23 +1091,19 @@
                 goalMarker.rotation.y += delta * 0.2;
             }
 
-            // --- MODIFICATION START: New state-based animation logic ---
             if (gameState === 'TURNING') {
-                // Find the shortest angle difference to the target
                 let angleDiff = targetRotation.y - player.rotation.y;
                 while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
                 while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
 
                 if (Math.abs(angleDiff) > 0.01) {
                     const turnStep = Math.sign(angleDiff) * TURN_SPEED * delta;
-                    // Move towards the target, but don't overshoot it
                     if (Math.abs(turnStep) >= Math.abs(angleDiff)) {
                         player.rotation.y = targetRotation.y;
                     } else {
                         player.rotation.y += turnStep;
                     }
                 } else {
-                    // Snap to the final rotation and start moving
                     player.rotation.y = targetRotation.y;
                     setupMove();
                 }
@@ -1106,20 +1112,16 @@
             if (gameState === 'DRIVING') {
                 const distanceToTarget = player.position.distanceTo(targetPosition);
                 if (distanceToTarget > 0.01) {
-                    // Move towards the target at a constant speed
                     const moveVector = targetPosition.clone().sub(player.position).normalize();
                     const moveDistance = Math.min(distanceToTarget, MOVE_SPEED * delta);
                     player.position.add(moveVector.multiplyScalar(moveDistance));
                 } else {
-                    // Snap to the final position and check for next turn
                     player.position.copy(targetPosition);
                     gameState = 'AT_INTERSECTION';
                     checkForTurns();
                 }
             }
-            // --- MODIFICATION END ---
             
-            // Update minimap if the player is in an active game state
             if (['DRIVING', 'TURNING', 'AT_INTERSECTION', 'BIG_MAP'].includes(gameState)) {
                 updateMinimapPlayer();
             }
@@ -1177,7 +1179,7 @@
         // 3D迷宫与视觉生成 (3D Maze & Visuals Generation)
         // ====================================================================
 
-        function createMazeMesh(grid) {
+        function createMazeMesh(grid, goal) {
             const gridWidth = grid[0].length;
             const gridHeight = grid.length;
 
@@ -1193,26 +1195,31 @@
                     if (grid[z][x] !== 1) continue;
                     
                     const worldPos = gridToWorld(x, z);
+                    const isNearGoal = Math.abs(x - goal.x) <= 1 && Math.abs(z - goal.z) <= 1 && !(x === goal.x && z === goal.z);
 
-                    if (z === 0 || grid[z - 1][x] === 0) {
-                        const wall = new THREE.Mesh(wallGeo, wallMaterialNS);
+                    if (z > 0 && grid[z - 1][x] === 0) {
+                        const material = isNearGoal && z - 1 === goal.z ? goalWallMaterial : wallMaterialNS;
+                        const wall = new THREE.Mesh(wallGeo, material);
                         wall.position.set(worldPos.x, WALL_HEIGHT / 2, worldPos.z - TILE_SIZE / 2);
                         mazeGroup.add(wall);
                     }
-                    if (z === gridHeight - 1 || grid[z + 1][x] === 0) {
-                        const wall = new THREE.Mesh(wallGeo, wallMaterialNS);
+                    if (z < gridHeight - 1 && grid[z + 1][x] === 0) {
+                        const material = isNearGoal && z + 1 === goal.z ? goalWallMaterial : wallMaterialNS;
+                        const wall = new THREE.Mesh(wallGeo, material);
                         wall.position.set(worldPos.x, WALL_HEIGHT / 2, worldPos.z + TILE_SIZE / 2);
                         wall.rotation.y = Math.PI;
                         mazeGroup.add(wall);
                     }
-                    if (x === 0 || grid[z][x - 1] === 0) {
-                        const wall = new THREE.Mesh(wallGeo, wallMaterialEW);
+                    if (x > 0 && grid[z][x - 1] === 0) {
+                        const material = isNearGoal && x - 1 === goal.x ? goalWallMaterial : wallMaterialEW;
+                        const wall = new THREE.Mesh(wallGeo, material);
                         wall.position.set(worldPos.x - TILE_SIZE / 2, WALL_HEIGHT / 2, worldPos.z);
                         wall.rotation.y = Math.PI / 2;
                         mazeGroup.add(wall);
                     }
-                    if (x === gridWidth - 1 || grid[z][x + 1] === 0) {
-                        const wall = new THREE.Mesh(wallGeo, wallMaterialEW);
+                    if (x < gridWidth - 1 && grid[z][x + 1] === 0) {
+                        const material = isNearGoal && x + 1 === goal.x ? goalWallMaterial : wallMaterialEW;
+                        const wall = new THREE.Mesh(wallGeo, material);
                         wall.position.set(worldPos.x + TILE_SIZE / 2, WALL_HEIGHT / 2, worldPos.z);
                         wall.rotation.y = -Math.PI / 2;
                         mazeGroup.add(wall);
@@ -1247,27 +1254,23 @@
         
         function createClassicalLamp() {
             const group = new THREE.Group();
-            const postMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6, metalness: 0.4 }); // Dark blue-grey metal
+            const postMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6, metalness: 0.4 });
 
-            // Base
             const baseGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.2, 8);
             const base = new THREE.Mesh(baseGeo, postMat);
             base.position.y = 0.1;
             group.add(base);
             
-            // Post
             const postGeo = new THREE.CylinderGeometry(0.15, 0.1, 3.5, 8);
             const post = new THREE.Mesh(postGeo, postMat);
-            post.position.y = 1.85; // 0.2 + 3.5/2
+            post.position.y = 1.85;
             group.add(post);
 
-            // Lantern holder
             const holderGeo = new THREE.BoxGeometry(0.2, 0.2, 0.8);
             const holder = new THREE.Mesh(holderGeo, postMat);
             holder.position.set(0, 3.6, 0.3);
             group.add(holder);
 
-            // Lantern
             const lanternGeo = new THREE.SphereGeometry(0.4, 8, 6);
             const lightColors = [0xfffee0, 0xffffff, 0xe0e0ff, 0xffe0e0, 0xffd54f];
             const randomColor = lightColors[Math.floor(Math.random() * lightColors.length)];
@@ -1276,8 +1279,7 @@
             bulb.position.set(0, 3.6, 0.3);
             group.add(bulb);
 
-            // Point light source
-            const light = new THREE.PointLight(randomColor, 0, TILE_SIZE * 2, 1.5); // Softer decay
+            const light = new THREE.PointLight(randomColor, 0, TILE_SIZE * 2, 1.5);
             light.position.copy(bulb.position);
             light.name = 'lampLight';
             group.add(light);
@@ -1295,7 +1297,6 @@
 
                     const worldPos = gridToWorld(x, z);
 
-                    // Check North wall
                     if (z > 0 && grid[z - 1][x] === 0) {
                         if (x % 3 === 0) {
                             const lamp = createClassicalLamp();
@@ -1303,16 +1304,14 @@
                             sceneryGroup.add(lamp);
                         }
                     }
-                    // Check South wall
                     if (z < gridHeight - 1 && grid[z + 1][x] === 0) {
-                       if (x % 3 === 1) { // Offset modulo
+                       if (x % 3 === 1) {
                             const lamp = createClassicalLamp();
                             lamp.position.set(worldPos.x, 0, worldPos.z + TILE_SIZE * 0.45);
                             lamp.rotation.y = Math.PI;
                             sceneryGroup.add(lamp);
                         }
                     }
-                    // Check West wall
                     if (x > 0 && grid[z][x - 1] === 0) {
                         if (z % 3 === 0) {
                             const lamp = createClassicalLamp();
@@ -1321,9 +1320,8 @@
                             sceneryGroup.add(lamp);
                         }
                     }
-                    // Check East wall
                     if (x < gridWidth - 1 && grid[z][x + 1] === 0) {
-                        if (z % 3 === 1) { // Offset modulo
+                        if (z % 3 === 1) {
                             const lamp = createClassicalLamp();
                             lamp.position.set(worldPos.x + TILE_SIZE * 0.45, 0, worldPos.z);
                             lamp.rotation.y = -Math.PI / 2;
@@ -1335,6 +1333,8 @@
         }
 
         function createMaterials() {
+            const textureLoader = new THREE.TextureLoader();
+
             wallMaterialNS = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns')),
                 roughness: 0.8,
@@ -1346,16 +1346,42 @@
                 roughness: 0.8,
                 metalness: 0.2
             });
+            
+            // MODIFICATION: Create a tiled floor material with sharp edges
+            const floorTexture = textureLoader.load('https://threejs.org/examples/textures/checker.png');
+            floorTexture.wrapS = THREE.RepeatWrapping;
+            floorTexture.wrapT = THREE.RepeatWrapping;
+            
+            // MODIFICATION: Use NearestFilter for a sharp, pixelated look
+            floorTexture.magFilter = THREE.NearestFilter;
+            floorTexture.minFilter = THREE.NearestFilter;
+
+            // The texture itself is a 2x2 checkerboard, so we repeat it many times.
+            // A maze tile is TILE_SIZE x TILE_SIZE (10x10). We can make each texture tile cover half a maze tile.
+            const repeatsPerMazeTile = 2;
+            const largestMazeDim = 25; // Based on MAZE_DATA
+            floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
 
             floorMaterial = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--floor-color')),
-                roughness: 0.9
+                map: floorTexture,
+                roughness: 0.8,
+                metalness: 0.1
             });
 
             landmarkMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color')),
                 transparent: true,
                 blending: THREE.AdditiveBlending
+            });
+            
+            const goalTexture = textureLoader.load('http://googleusercontent.com/file_content/1');
+            goalTexture.wrapS = THREE.RepeatWrapping;
+            goalTexture.wrapT = THREE.RepeatWrapping;
+            goalTexture.repeat.set(1, 1);
+            goalWallMaterial = new THREE.MeshStandardMaterial({
+                map: goalTexture,
+                roughness: 0.7,
+                metalness: 0.1
             });
         }
 
