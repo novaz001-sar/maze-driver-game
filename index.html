@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
+    <!--
+    ============================================================================
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v4.3 终极地图更新版 ##
+    ============================================================================
+
+    这是一款面向中老年用户的、极简交互的第一人称3D迷宫驾驶游戏。
+    v4.3 版本根据用户反馈，再次彻底重制了所有迷宫，以提供最高的挑战性。
+
+    ### v4.3 更新内容 (What's New in v4.3)
+    1.  **终极版迷宫 (Ultimate Mazes)**: 
+        * 所有15个关卡再次根据用户要求进行重新设计，风格更统一，路径更曲折。
+        * 增加了大量死胡同，并严格限制了长直路的出现，杜绝任何明显捷径。
+    2.  **初始语言选择 (Initial Language Selection)**:
+        * 在填写玩家信息的界面，增加了直接选择游戏语言的选项，方便玩家第一时间以熟悉的语言开始游戏。
+
+    ### 玩法说明 (How to Play)
+    1.  **启动游戏**: 选择语言，输入昵称和性别，进入主菜单。
+    2.  **选择模式**:
+        * **通关模式 (Campaign Mode)**: 按顺序挑战15个全新设计的复杂关卡。
+        * **自由模式 (Free Mode)**: 自由选择任意关卡进行练习。
+    3.  **开始驾驶**:
+        * 游戏开始时，会显示一个巨大的俯瞰地图。点击地图，它会缩小并固定在右上角。
+    4.  **路口决策 (Intersection)**:
+        * 在迷宫的**任何一格**，车辆都会停下等待您的指令。
+        * 地面上会出现一个发光的箭头地标 (Landmark)，默认指向车辆当前朝向。
+    5.  **选择方向**:
+        * 按下 `D` 键，地面箭头会**向右转90度**。
+        * 按下 `A` 键，地面箭头会**向左转90度**。
+    6.  **确认前进**:
+        * 按下 `空格 (Space)` 键确认。车辆会平滑地转向新方向，然后**行驶一格**。
+    
+    ### 键位 (Controls)
+    * `A` : 预备向左转90度 (Prepare Turn Left)。
+    * `D` : 预备向右转90度 (Prepare Turn Right)。
+    * `空格 (Space)`: 确认并前进 (Confirm & Move)。
+    * `ESC`: 呼出/关闭菜单 (Toggle Menu)。
+    * `鼠标左键`: 点击UI元素 (Click UI Elements)。
+
+    ============================================================================
+    -->
+    <style>
+        :root {
+            --bg-color: #f0f8ff; /* AliceBlue - a very light blue sky */
+            --text-color: #333333; /* Dark Grey for text */
+            --primary-color: #007bff; /* Bright Blue */
+            --highlight-color: #28a745; /* Green */
+            --wall-color: #f5deb3; /* Wheat - warm wall color */
+            --floor-color: #8fbc8f; /* DarkSeaGreen - grass */
+            --landmark-color: #ffc107; /* Amber */
+            --start-color: #007bff;
+            --goal-color: #dc3545; /* Red */
+            --font-size-normal: 18px;
+            --font-size-large: 22px;
+            --font-size-xlarge: 28px;
+            --minimap-scale: 1; /* 小地图缩放比例 */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: var(--font-size-normal);
+        }
+
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hud {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #top-hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        #bottom-hud {
+            text-align: center;
+            padding-bottom: 40px;
+        }
+
+        #choice-prompt {
+            background-color: rgba(255, 255, 255, 0.8);
+            color: var(--text-color);
+            padding: 15px 25px;
+            border-radius: 15px;
+            border: 2px solid var(--primary-color);
+            font-size: var(--font-size-large);
+            font-weight: bold;
+            display: none; /* Initially hidden */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        #minimap-container {
+            position: fixed;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 2px solid var(--primary-color);
+            border-radius: 10px;
+            transition: all 0.5s ease-in-out;
+            z-index: 10;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+        }
+
+        #minimap-container.big-map {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vmin;
+            height: 80vmin;
+            cursor: pointer;
+        }
+
+        #minimap-container.small-map {
+            top: 20px;
+            right: 20px;
+            width: calc(25vmin * var(--minimap-scale));
+            height: calc(25vmin * var(--minimap-scale));
+            max-width: calc(250px * var(--minimap-scale));
+            max-height: calc(250px * var(--minimap-scale));
+            cursor: default;
+        }
+
+        #minimap-canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        /* Modals and Menus */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-content {
+            background-color: white;
+            color: var(--text-color);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid var(--primary-color);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 0 25px rgba(0, 123, 255, 0.5);
+        }
+
+        .modal-content h2 {
+            font-size: var(--font-size-xlarge);
+            margin-top: 0;
+            margin-bottom: 30px;
+            color: var(--primary-color);
+        }
+        
+        .modal-content p {
+            font-size: var(--font-size-normal);
+            margin-bottom: 20px;
+        }
+
+        .modal-content input, .modal-content select {
+            width: 80%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            background-color: #f8f9fa;
+            color: var(--text-color);
+            font-size: var(--font-size-normal);
+            min-height: 44px;
+        }
+
+        .modal-content button {
+            padding: 15px 0;
+            border-radius: 10px;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: var(--font-size-large);
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 80%;
+            max-width: 300px;
+            min-height: 50px;
+            margin: 10px auto;
+            display: block;
+        }
+
+        .modal-content button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
+        }
+        
+        #results-medal {
+            font-size: 80px;
+            margin: 20px 0;
+        }
+        
+        #results-title {
+            color: var(--highlight-color);
+        }
+
+        #dev-panel {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 20;
+            pointer-events: auto;
+            display: none;
+        }
+        #dev-panel h4 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        #dev-panel select {
+            min-height: 44px;
+        }
+
+        #settings-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border: none;
+            color: var(--text-color);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 20;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #settings-panel {
+            display: none;
+        }
+
+        .settings-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .settings-group label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        .settings-group select, .settings-group input[type="range"] {
+            width: 100%;
+        }
+
+        #level-select-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        #level-select-grid button {
+            min-width: 60px;
+            width: 100%;
+            padding: 10px;
+        }
+
+        #level-select-grid button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        .lang-en { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container"></div>
+
+    <div id="ui-container">
+        <div id="top-hud" class="hud">
+        </div>
+        <div id="bottom-hud" class="hud">
+            <div id="choice-prompt"></div>
+        </div>
+    </div>
+
+    <div id="minimap-container">
+        <canvas id="minimap-canvas"></canvas>
+    </div>
+    
+    <button id="settings-button">⚙️</button>
+
+    <div id="startup-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 data-lang-zh="欢迎来到迷宫驾驶" data-lang-en="Welcome to Maze Driver">欢迎来到迷宫驾驶</h2>
+            <div class="settings-group">
+                <label for="initial-language-select" data-lang-zh="语言 / Language" data-lang-en="语言 / Language">语言 / Language</label>
+                <select id="initial-language-select">
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <p data-lang-zh="为了更好地称呼您，请输入您的信息：" data-lang-en="To get started, please enter your info:">为了更好地称呼您，请输入您的信息：</p>
+            <input type="text" id="nickname-input" data-lang-placeholder-zh="请输入您的昵称" data-lang-placeholder-en="Enter your nickname">
+            <select id="gender-select">
+                <option value="male" data-lang-zh="男" data-lang-en="Male">男</option>
+                <option value="female" data-lang-zh="女" data-lang-en="Female">女</option>
+                <option value="other" data-lang-zh="其他" data-lang-en="Other">其他</option>
+            </select>
+            <button id="start-game-btn" data-lang-zh="开始游戏" data-lang-en="Start Game">开始游戏</button>
+        </div>
+    </div>
+
+    <div id="main-menu-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 id="welcome-message"></h2>
+            <button id="campaign-mode-btn" data-lang-zh="通关模式" data-lang-en="Campaign Mode">通关模式</button>
+            <button id="free-mode-btn" data-lang-zh="自由模式" data-lang-en="Free Mode">自由模式</button>
+        </div>
+    </div>
+    
+    <div id="level-complete-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 id="results-title"></h2>
+            <div id="results-medal"></div>
+            <p id="results-stats"></p>
+            <p id="results-quote"></p>
+            <button id="next-level-btn" data-lang-zh="下一关" data-lang-en="Next Level">下一关</button>
+            <button id="main-menu-btn" data-lang-zh="返回主菜单" data-lang-en="Main Menu">返回主菜单</button>
+        </div>
+    </div>
+
+    <div id="settings-panel" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 data-lang-zh="设置" data-lang-en="Settings">设置</h2>
+            <div class="settings-group">
+                <label for="language-select" data-lang-zh="语言" data-lang-en="Language">语言</label>
+                <select id="language-select">
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <div class="settings-group">
+                <label for="font-size-slider" data-lang-zh="字体大小" data-lang-en="Font Size">字体大小</label>
+                <input type="range" id="font-size-slider" min="0.8" max="1.5" step="0.1" value="1">
+            </div>
+            <div class="settings-group">
+                <label for="minimap-size-slider" data-lang-zh="小地图大小" data-lang-en="Minimap Size">小地图大小</label>
+                <input type="range" id="minimap-size-slider" min="1" max="1.414" step="0.01" value="1">
+            </div>
+            <div class="settings-group">
+                <label for="helper-text-toggle" data-lang-zh="辅助文字" data-lang-en="Helper Text">辅助文字</label>
+                <select id="helper-text-toggle">
+                    <option value="on" data-lang-zh="开启" data-lang-en="On">开启</option>
+                    <option value="off" data-lang-zh="关闭" data-lang-en="Off">关闭</option>
+                </select>
+            </div>
+            <button id="close-settings-btn" data-lang-zh="关闭" data-lang-en="Close">关闭</button>
+        </div>
+    </div>
+
+    <div id="pause-menu-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 data-lang-zh="暂停菜单" data-lang-en="Pause Menu">暂停菜单</h2>
+            <button id="resume-game-btn" data-lang-zh="返回游戏" data-lang-en="Resume Game">返回游戏</button>
+            <button id="level-select-btn" data-lang-zh="选择关卡" data-lang-en="Select Level">选择关卡</button>
+            <button id="reset-game-btn" data-lang-zh="重置游戏" data-lang-en="Reset Game">重置游戏</button>
+            <button id="pause-to-main-menu-btn" data-lang-zh="返回主菜单" data-lang-en="Main Menu">返回主菜单</button>
+        </div>
+    </div>
+
+    <div id="level-select-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 data-lang-zh="选择关卡" data-lang-en="Select Level">选择关卡</h2>
+            <div id="level-select-grid"></div>
+            <button id="close-level-select-btn" data-lang-zh="返回" data-lang-en="Back">返回</button>
+        </div>
+    </div>
+
+    <div id="dev-panel">
+        <h4 data-lang-zh="关卡快速切换" data-lang-en="Quick Level Select">关卡快速切换</h4>
+        <select id="level-select"></select>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ====================================================================
+        // 全局变量和状态机 (Global Variables & State Machine)
+        // ====================================================================
+        
+        const TILE_SIZE = 10;
+        const WALL_HEIGHT = 5;
+        const MOVE_SPEED = 15;
+        const TURN_SPEED = Math.PI * 2;
+
+        let scene, camera, renderer, clock;
+        let player, mazeGroup, landmarksGroup, goalMarker, lamppostGroup, previewArrow;
+        let minimap, minimapCtx;
+        
+        let gameState = 'STARTUP_MODAL';
+        let gameMode = 'campaign';
+        let currentLevelIndex = 0;
+        let playerInfo = { nickname: 'Driver', gender: 'other' };
+
+        let playerChoices = 0;
+        let optimalChoices = 0;
+        
+        let isMoving = false;
+        let isTurning = false;
+        let targetPosition = new THREE.Vector3();
+        let targetRotation = new THREE.Euler();
+        let previewAngle;
+        let previousGameState = '';
+        let unlockedLevel = 0;
+
+        const keyState = { 'a': false, 'd': false, 'space': false, 'escape': false };
+        let keyDebounce = false;
+
+        let wallMaterial, floorMaterial, landmarkMaterial;
+        let hemisphereLight;
+
+        let currentLanguage = 'zh';
+
+        // ====================================================================
+        // 语言翻译数据 (Language Translation Data)
+        // ====================================================================
+        const translations = {
+            zh: {
+                welcome: (nickname) => `你好, ${nickname}!`,
+                levelComplete: "关卡完成！",
+                drivingGenius: "驾驶天才",
+                greatDriver: "优秀司机",
+                newDriver: "新手上路",
+                quoteGenius: "完美！你就是这座城市的传奇！",
+                quoteGreat: "干得漂亮！路线规划得非常出色。",
+                quoteNew: "安全到达！经验丰富的选择。",
+                stats: (p, o, r) => `你的步数: ${p} | 最优步数: ${o} | R值: ${r}`,
+                freeModeComplete: "自由模式练习完成。",
+                nextLevel: "下一关",
+                finalResults: "查看最终结果",
+                select: "选择",
+                forward: "向前",
+                turnLeft: "向左",
+                turnRight: "向右",
+                turnAround: "掉头",
+                helperText: "按 A/D 切换, 空格确认",
+                level: "关卡",
+                confirmReset: "您确定要重置所有游戏数据吗？此操作无法撤销。",
+                allLevelsCleared: "恭喜你！已通关所有关卡！"
+            },
+            en: {
+                welcome: (nickname) => `Hello, ${nickname}!`,
+                levelComplete: "Level Complete!",
+                drivingGenius: "Driving Genius",
+                greatDriver: "Great Driver",
+                newDriver: "New Driver",
+                quoteGenius: "Perfect! You are a legend in this city!",
+                quoteGreat: "Well done! An excellent route plan.",
+                quoteNew: "Arrived safely! A solid choice.",
+                stats: (p, o, r) => `Your Steps: ${p} | Optimal: ${o} | R-Value: ${r}`,
+                freeModeComplete: "Free mode practice complete.",
+                nextLevel: "Next Level",
+                finalResults: "View Final Results",
+                select: "Select",
+                forward: "Forward",
+                turnLeft: "Turn Left",
+                turnRight: "Turn Right",
+                turnAround: "Turn Around",
+                helperText: "Use A/D to switch, Space to confirm",
+                level: "Level",
+                confirmReset: "Are you sure you want to reset all game data? This action cannot be undone.",
+                allLevelsCleared: "Congratulations! You have cleared all levels!"
+            }
+        };
+
+        // ====================================================================
+        // 关卡数据 (Level Data) - v4.3 全新超复杂地图
+        // ====================================================================
+        const MAZE_DATA = [
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,0,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],['S',0,1,0,1,0,0,0,1,0,1,0,1,0,1],[1,0,1,1,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,'E',1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,1,0,1,0,0,0,1,0,1,0,'S'],[1,0,1,0,1,0,1,1,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,1,1],[1,0,0,0,1,0,1,0,0,0,1,0,1,0,1],[1,1,1,0,1,0,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,0,1,0,1,0,1,0,1,1,1,1,1,0,1],['E',0,0,0,1,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,1,1],[1,0,0,0,1,0,1,0,0,0,1,0,0,0,1],[1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],['S',0,1,0,0,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1],[1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,'E',1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,'S'],[1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,'E',1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1],[1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1],[1,0,0,0,0,0,0,0,1,0,1,0,1,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,'S'],[1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,'E',1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1],['S',0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1],[1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,'E',1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,'S'],[1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1],['E',0,0,0,1,0,0,0,1,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,1,1],[1,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1],[1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,'S'],[1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,1,0,1,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],[1,1,1,1,1,'E',1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],['S',0,1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1],[1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0,1],[1,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,'E',1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1,0,1],[1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1,1],[1,0,1,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1],[1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,'E',1,1,1,1,1,1,1,'S',1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,1],[1,1,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1],[1,0,0,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,1],[1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1],[1,'E',1,1,1,1,1,1,1,1,1,1,1,1,1,'S',1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,1],[1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],[1,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],['E',0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,'S',1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,1,1,1,1],['S',0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1],[1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,1],[1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,'E',1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,'S',1,1,1,1,1,1,1,1,1,'E',1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,0,1,0,1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1,1],['S',0,0,0,1,0,1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,'E',1,1,1]]
+        ];
+        
+        const levels = MAZE_DATA.map(mazeData => {
+            const grid = [];
+            let start = {};
+            let goal = {};
+            const height = mazeData.length;
+            const width = mazeData[0].length;
+
+            for(let z = 0; z < height; z++) {
+                const row = [];
+                for (let x = 0; x < width; x++) {
+                    const cell = mazeData[z][x];
+                    if (cell === 'S') {
+                        start = { x, z, dir: 'S' }; // Default dir, can be changed
+                        row.push(1); // Path
+                    } else if (cell === 'E') {
+                        goal = { x, z };
+                        row.push(1); // Path
+                    } else {
+                        // In your data, 1 is wall and 0 is path.
+                        // In my game, 0 is wall and 1 is path. So I flip it.
+                        row.push(cell === 1 ? 0 : 1);
+                    }
+                }
+                grid.push(row);
+            }
+            
+            // Determine start direction based on opening
+            if (start.x === 0) start.dir = 'E';
+            else if (start.x === width - 1) start.dir = 'W';
+            else if (start.z === 0) start.dir = 'S';
+            else if (start.z === height - 1) start.dir = 'N';
+
+            return { grid, start, goal };
+        });
+
+        // ====================================================================
+        // 初始化函数 (Initialization)
+        // ====================================================================
+        
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(getComputedStyle(document.body).getPropertyValue('--bg-color'));
+            scene.fog = new THREE.Fog(scene.background, 1, TILE_SIZE * 15);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('game-container').appendChild(renderer.domElement);
+            clock = new THREE.Clock();
+
+            hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3);
+            hemisphereLight.position.set(0, 20, 0);
+            scene.add(hemisphereLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+            dirLight.position.set(-1, 1.75, 1);
+            dirLight.position.multiplyScalar(30);
+            scene.add(dirLight);
+
+            player = new THREE.Object3D();
+            scene.add(player);
+            player.add(camera);
+
+            camera.position.set(0, WALL_HEIGHT * 0.4, 0);
+            camera.rotation.x = THREE.MathUtils.degToRad(-8);
+
+            const headLight = new THREE.SpotLight(0xffffff, 10, 8 * TILE_SIZE, Math.PI / 4, 0.5, 1.5);
+            headLight.position.set(0, 0, 1);
+            camera.add(headLight);
+
+            mazeGroup = new THREE.Group();
+            landmarksGroup = new THREE.Group();
+            lamppostGroup = new THREE.Group();
+            scene.add(mazeGroup);
+            scene.add(landmarksGroup);
+            scene.add(lamppostGroup);
+            
+            minimap = document.getElementById('minimap-canvas');
+            minimapCtx = minimap.getContext('2d');
+
+            createMaterials();
+
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            
+            setupUI();
+            updateUIText();
+            
+            animate();
+        }
+
+        function setupUI() {
+            document.getElementById('initial-language-select').addEventListener('change', (e) => {
+                currentLanguage = e.target.value;
+                updateUIText();
+            });
+
+            document.getElementById('start-game-btn').addEventListener('click', () => {
+                currentLanguage = document.getElementById('initial-language-select').value;
+                document.getElementById('language-select').value = currentLanguage;
+
+                const nickname = document.getElementById('nickname-input').value.trim();
+                playerInfo.nickname = nickname || (currentLanguage === 'zh' ? '司机' : 'Driver');
+                playerInfo.gender = document.getElementById('gender-select').value;
+
+                document.getElementById('startup-modal').style.display = 'none';
+                document.getElementById('main-menu-modal').style.display = 'flex';
+                updateUIText();
+                gameState = 'MAIN_MENU';
+            });
+
+            document.getElementById('campaign-mode-btn').addEventListener('click', () => {
+                gameMode = 'campaign';
+                currentLevelIndex = 0;
+                document.getElementById('main-menu-modal').style.display = 'none';
+                document.getElementById('dev-panel').style.display = 'none';
+                loadLevel(currentLevelIndex);
+            });
+
+            document.getElementById('free-mode-btn').addEventListener('click', () => {
+                gameMode = 'free';
+                currentLevelIndex = 0;
+                document.getElementById('main-menu-modal').style.display = 'none';
+                setupDevPanel();
+                document.getElementById('dev-panel').style.display = 'block';
+                loadLevel(currentLevelIndex);
+            });
+            
+            document.getElementById('next-level-btn').addEventListener('click', () => {
+                document.getElementById('level-complete-modal').style.display = 'none';
+                currentLevelIndex++;
+                if (currentLevelIndex < levels.length) {
+                    loadLevel(currentLevelIndex);
+                } else {
+                    alert(translations[currentLanguage].allLevelsCleared);
+                    showMainMenu();
+                }
+            });
+            document.getElementById('main-menu-btn').addEventListener('click', () => {
+                document.getElementById('level-complete-modal').style.display = 'none';
+                showMainMenu();
+            });
+
+            document.getElementById('minimap-container').addEventListener('click', () => {
+                if (gameState === 'BIG_MAP') {
+                    const container = document.getElementById('minimap-container');
+                    container.classList.remove('big-map');
+                    container.classList.add('small-map');
+                    gameState = 'AT_INTERSECTION';
+                    checkForTurns();
+                }
+            });
+
+            document.getElementById('settings-button').addEventListener('click', () => {
+                document.getElementById('settings-panel').style.display = 'flex';
+            });
+            document.getElementById('close-settings-btn').addEventListener('click', () => {
+                document.getElementById('settings-panel').style.display = 'none';
+            });
+            document.getElementById('font-size-slider').addEventListener('input', (e) => {
+                document.body.style.fontSize = `calc(${getComputedStyle(document.body).getPropertyValue('--font-size-normal')} * ${e.target.value})`;
+            });
+            document.getElementById('minimap-size-slider').addEventListener('input', (e) => {
+                document.documentElement.style.setProperty('--minimap-scale', e.target.value);
+            });
+            document.getElementById('language-select').addEventListener('change', (e) => {
+                currentLanguage = e.target.value;
+                document.getElementById('initial-language-select').value = currentLanguage;
+                updateUIText();
+            });
+            
+            // Pause Menu UI
+            document.getElementById('resume-game-btn').addEventListener('click', togglePauseMenu);
+            document.getElementById('pause-to-main-menu-btn').addEventListener('click', () => {
+                togglePauseMenu();
+                showMainMenu();
+            });
+            document.getElementById('level-select-btn').addEventListener('click', showLevelSelectModal);
+            document.getElementById('reset-game-btn').addEventListener('click', () => {
+                if(confirm(translations[currentLanguage].confirmReset)) {
+                    resetGame();
+                }
+            });
+
+            // Level Select UI
+            document.getElementById('close-level-select-btn').addEventListener('click', () => {
+                document.getElementById('level-select-modal').style.display = 'none';
+                document.getElementById('pause-menu-modal').style.display = 'flex';
+            });
+        }
+
+        function setupDevPanel() {
+            const select = document.getElementById('level-select');
+            select.innerHTML = '';
+            levels.forEach((_, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${translations[currentLanguage].level} ${index + 1}`;
+                select.appendChild(option);
+            });
+            select.addEventListener('change', (e) => {
+                loadLevel(parseInt(e.target.value));
+            });
+        }
+        
+        function showMainMenu() {
+            gameState = 'MAIN_MENU';
+            document.getElementById('main-menu-modal').style.display = 'flex';
+            while(mazeGroup.children.length > 0){ mazeGroup.remove(mazeGroup.children[0]); }
+            while(landmarksGroup.children.length > 0){ landmarksGroup.remove(landmarksGroup.children[0]); }
+            while(lamppostGroup.children.length > 0){ lamppostGroup.remove(lamppostGroup.children[0]); }
+            if(goalMarker) scene.remove(goalMarker);
+
+            document.getElementById('minimap-container').style.display = 'none';
+        }
+
+        // ====================================================================
+        // 游戏核心逻辑 (Core Game Logic)
+        // ====================================================================
+        
+        function loadLevel(index) {
+            if (index >= levels.length) {
+                console.error(`Level index ${index} out of bounds!`);
+                showMainMenu();
+                return;
+            }
+            currentLevelIndex = index;
+            const level = levels[index];
+
+            playerChoices = 0;
+            isMoving = false;
+            isTurning = false;
+            document.getElementById('choice-prompt').style.display = 'none';
+
+            while(mazeGroup.children.length > 0){ mazeGroup.remove(mazeGroup.children[0]); }
+            while(landmarksGroup.children.length > 0){ landmarksGroup.remove(landmarksGroup.children[0]); }
+            while(lamppostGroup.children.length > 0){ lamppostGroup.remove(lamppostGroup.children[0]); }
+            if(goalMarker) scene.remove(goalMarker);
+
+            createMazeMesh(level.grid);
+            placeLampposts(level.grid);
+            createGoalMarker(level.goal);
+            
+            const startPos = gridToWorld(level.start.x, level.start.z);
+            player.position.set(startPos.x, 0, startPos.z);
+            player.rotation.y = dirToAngle(level.start.dir);
+
+            const pathInfo = findShortestPath(level);
+            if (!pathInfo) {
+                alert(`Error: Level ${index + 1} is unsolvable or has data issues. Skipping.`);
+                console.error(`Level ${index + 1} unsolvable!`, level);
+                if (gameMode === 'campaign' && currentLevelIndex + 1 < levels.length) {
+                    setTimeout(() => loadLevel(currentLevelIndex + 1), 1000);
+                } else {
+                    showMainMenu();
+                }
+                return;
+            }
+            optimalChoices = pathInfo.choices;
+            console.log(`Level ${index + 1}: Optimal Steps = ${optimalChoices}`);
+            
+            const minimapContainer = document.getElementById('minimap-container');
+            minimapContainer.style.display = 'block';
+            minimapContainer.classList.remove('small-map');
+            minimapContainer.classList.add('big-map');
+            
+            lastPlayerGridPos = { x: -1, z: -1 }; 
+            updateMinimapPlayer();
+            
+            gameState = 'BIG_MAP';
+        }
+
+        function gridToWorld(x, z) {
+            const level = levels[currentLevelIndex];
+            const gridWidth = level.grid[0].length;
+            const gridHeight = level.grid.length;
+            return new THREE.Vector3(
+                (x - gridWidth / 2 + 0.5) * TILE_SIZE,
+                0,
+                (z - gridHeight / 2 + 0.5) * TILE_SIZE
+            );
+        }
+        
+        function worldToGrid(position) {
+            const level = levels[currentLevelIndex];
+            const gridWidth = level.grid[0].length;
+            const gridHeight = level.grid.length;
+            return {
+                x: Math.round(position.x / TILE_SIZE + gridWidth / 2 - 0.5),
+                z: Math.round(position.z / TILE_SIZE + gridHeight / 2 - 0.5)
+            };
+        }
+        
+        function dirToAngle(dir) {
+            switch (dir) {
+                case 'N': return Math.PI;
+                case 'E': return -Math.PI / 2;
+                case 'S': return 0;
+                case 'W': return Math.PI / 2;
+            }
+            return 0;
+        }
+
+        function checkForTurns() {
+            const gridPos = worldToGrid(player.position);
+            const level = levels[currentLevelIndex];
+            const { goal } = level;
+
+            if (gridPos.x === goal.x && gridPos.z === goal.z) {
+                gameState = 'LEVEL_COMPLETE';
+                showLevelComplete();
+                return;
+            }
+
+            previewAngle = player.rotation.y;
+            createPreviewLandmark();
+            updateChoicePrompt();
+            gameState = 'AT_INTERSECTION';
+        }
+
+        function cameraShake() {
+            const shakeIntensity = 0.05;
+            let shakeDuration = 200; // ms
+            const startTime = Date.now();
+
+            function shake() {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime > shakeDuration) {
+                    camera.position.set(0, WALL_HEIGHT * 0.4, 0);
+                    return;
+                }
+                const progress = elapsedTime / shakeDuration;
+                const shakeAmount = shakeIntensity * (1 - progress);
+                const shakeX = (Math.random() - 0.5) * shakeAmount;
+                const shakeY = (Math.random() - 0.5) * shakeAmount;
+                camera.position.set(shakeX, WALL_HEIGHT * 0.4 + shakeY, 0);
+                requestAnimationFrame(shake);
+            }
+            shake();
+        }
+
+        function createPreviewLandmark() {
+            while(landmarksGroup.children.length > 0){ 
+                landmarksGroup.remove(landmarksGroup.children[0]); 
+            }
+
+            const arrowShape = new THREE.Shape();
+            const w = TILE_SIZE * 0.25;
+            const h = TILE_SIZE * 0.4;
+            arrowShape.moveTo(0, h);
+            arrowShape.lineTo(w, 0);
+            arrowShape.lineTo(w/2, 0);
+            arrowShape.lineTo(w/2, -h/2);
+            arrowShape.lineTo(-w/2, -h/2);
+            arrowShape.lineTo(-w/2, 0);
+            arrowShape.lineTo(-w, 0);
+            arrowShape.closePath();
+            const landmarkGeo = new THREE.ShapeGeometry(arrowShape);
+            landmarkGeo.rotateX(-Math.PI / 2);
+
+            const turnVector = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, previewAngle, 0));
+            const landmarkPos = player.position.clone().add(turnVector.multiplyScalar(TILE_SIZE * 0.7));
+            landmarkPos.y = 0.1;
+
+            previewArrow = new THREE.Mesh(landmarkGeo, landmarkMaterial);
+            previewArrow.position.copy(landmarkPos);
+            previewArrow.rotation.y = previewAngle;
+            landmarksGroup.add(previewArrow);
+        }
+        
+        function updateChoicePrompt() {
+            const prompt = document.getElementById('choice-prompt');
+            const helperToggle = document.getElementById('helper-text-toggle').value;
+            const lang = translations[currentLanguage];
+
+            if (gameState !== 'AT_INTERSECTION') {
+                prompt.style.display = 'none';
+                return;
+            }
+            
+            prompt.style.display = 'inline-block';
+            
+            const currentAngle = (player.rotation.y % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const targetAngle = (previewAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            
+            let angleDiff = targetAngle - currentAngle;
+            if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+            let turnText = '...';
+            if (Math.abs(angleDiff) < 0.1) turnText = lang.forward;
+            else if (Math.abs(angleDiff - Math.PI / 2) < 0.1) turnText = lang.turnLeft;
+            else if (Math.abs(angleDiff + Math.PI / 2) < 0.1) turnText = lang.turnRight;
+            else if (Math.abs(angleDiff) > Math.PI - 0.1) turnText = lang.turnAround;
+            
+            prompt.innerHTML = `${lang.select}: ${turnText}` + (helperToggle === 'on' ? `<br><span style="font-size: 0.8em;">${lang.helperText}</span>` : '');
+        }
+
+        function confirmChoice() {
+            if (gameState !== 'AT_INTERSECTION') return;
+            
+            isTurning = true;
+            targetRotation.y = previewAngle;
+
+            const turnDuration = Math.abs(THREE.MathUtils.radToDeg(targetRotation.y - player.rotation.y)) / (TURN_SPEED * 180 / Math.PI);
+
+            setTimeout(() => {
+                isTurning = false;
+                player.rotation.y = targetRotation.y;
+
+                const gridPos = worldToGrid(player.position);
+                const moveVector = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
+                const nextGridX = gridPos.x + Math.round(moveVector.x);
+                const nextGridZ = gridPos.z + Math.round(moveVector.z);
+                const level = levels[currentLevelIndex];
+
+                if (nextGridZ < 0 || nextGridZ >= level.grid.length || nextGridX < 0 || nextGridX >= level.grid[0].length || level.grid[nextGridZ][nextGridX] === 0) {
+                    cameraShake();
+                } else {
+                    playerChoices++;
+                    document.getElementById('choice-prompt').style.display = 'none';
+                    while(landmarksGroup.children.length > 0){ 
+                        landmarksGroup.remove(landmarksGroup.children[0]); 
+                    }
+                    isMoving = true;
+                    targetPosition.copy(gridToWorld(nextGridX, nextGridZ));
+                    gameState = 'DRIVING';
+                }
+            }, turnDuration * 1000 + 50);
+        }
+        
+        function showLevelComplete() {
+            const modal = document.getElementById('level-complete-modal');
+            const stats = document.getElementById('results-stats');
+            const medalEl = document.getElementById('results-medal');
+            const quoteEl = document.getElementById('results-quote');
+            const nextBtn = document.getElementById('next-level-btn');
+            const lang = translations[currentLanguage];
+            
+            if (gameMode === 'campaign') {
+                unlockedLevel = Math.max(unlockedLevel, currentLevelIndex + 1);
+                const R = optimalChoices > 0 ? playerChoices / optimalChoices : 1;
+                let medal = '';
+                let title = '';
+                let quote = '';
+
+                if (R <= 1.0) {
+                    medal = '🥇';
+                    title = lang.drivingGenius;
+                    quote = lang.quoteGenius;
+                } else if (R <= 1.5) {
+                    medal = '🥈';
+                    title = lang.greatDriver;
+                    quote = lang.quoteGreat;
+                } else {
+                    medal = '🥉';
+                    title = lang.newDriver;
+                    quote = lang.quoteNew;
+                }
+                
+                medalEl.textContent = medal;
+                document.getElementById('results-title').textContent = title;
+                stats.textContent = lang.stats(playerChoices, optimalChoices, R.toFixed(2));
+                quoteEl.textContent = quote;
+                
+                stats.style.display = 'block';
+                medalEl.style.display = 'block';
+                quoteEl.style.display = 'block';
+
+                if (currentLevelIndex >= levels.length - 1) {
+                    nextBtn.textContent = lang.finalResults;
+                } else {
+                    nextBtn.textContent = lang.nextLevel;
+                }
+                nextBtn.style.display = 'inline-block';
+
+            } else {
+                document.getElementById('results-title').textContent = lang.levelComplete;
+                stats.style.display = 'none';
+                medalEl.style.display = 'none';
+                quoteEl.textContent = lang.freeModeComplete;
+                nextBtn.style.display = 'none';
+            }
+            
+            modal.style.display = 'flex';
+        }
+
+        // ====================================================================
+        // 渲染和动画 (Rendering & Animation)
+        // ====================================================================
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            if(gameState === 'PAUSED') return;
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+            
+            // Day-night cycle
+            const dayNightCycle = (Math.sin(elapsedTime * 0.1) + 1) / 2; // 0 to 1
+            const nightIntensity = Math.max(0, 1 - dayNightCycle * 4);
+            scene.background.setHSL(0.6, 0.7, dayNightCycle * 0.4 + 0.3);
+            hemisphereLight.intensity = dayNightCycle * 2.5 + 0.5;
+            lamppostGroup.children.forEach(lamppost => {
+                lamppost.getObjectByName('light').intensity = nightIntensity * 20;
+            });
+
+
+            if (goalMarker) {
+                goalMarker.position.y = WALL_HEIGHT + 2 + Math.sin(elapsedTime) * 0.5;
+                goalMarker.rotation.y += delta * 0.2;
+            }
+
+            if (isTurning) {
+                player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetRotation.y, TURN_SPEED * delta);
+            }
+            
+            if (isMoving) {
+                const distanceToTarget = player.position.distanceTo(targetPosition);
+                if (distanceToTarget > 0.01) {
+                    player.position.lerp(targetPosition, MOVE_SPEED * delta / distanceToTarget);
+                } else {
+                    player.position.copy(targetPosition);
+                    isMoving = false;
+                    gameState = 'AT_INTERSECTION';
+                    checkForTurns();
+                }
+            }
+            
+            if (isMoving || isTurning || gameState === 'AT_INTERSECTION') {
+                updateMinimapPlayer();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ====================================================================
+        // 输入处理 (Input Handling)
+        // ====================================================================
+        
+        function onKeyDown(event) {
+            if (!event || !event.key) return;
+            const key = event.key.toLowerCase();
+            if (keyState[key]) return;
+            keyState[key] = true;
+
+            if (key === 'escape') {
+                togglePauseMenu();
+                return;
+            }
+
+            if (gameState !== 'AT_INTERSECTION') return;
+            
+            if (key === 'a' || key === 'd') {
+                if (keyDebounce) return;
+                keyDebounce = true;
+                setTimeout(() => { keyDebounce = false; }, 100);
+
+                if (key === 'd') {
+                    previewAngle -= Math.PI / 2;
+                } else if (key === 'a') {
+                    previewAngle += Math.PI / 2;
+                }
+                createPreviewLandmark();
+                updateChoicePrompt();
+            } else if (key === ' ' || key === 'spacebar') {
+                confirmChoice();
+            }
+        }
+        
+        function onKeyUp(event) {
+            if (!event || !event.key) return;
+            const key = event.key.toLowerCase();
+            keyState[key] = false;
+        }
+
+        // ====================================================================
+        // 3D迷宫与视觉生成 (3D Maze & Visuals Generation)
+        // ====================================================================
+
+        function createMazeMesh(grid) {
+            const gridWidth = grid[0].length;
+            const gridHeight = grid.length;
+
+            const wallGeo = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE);
+            const floorPlane = new THREE.PlaneGeometry(gridWidth * TILE_SIZE, gridHeight * TILE_SIZE);
+            
+            const floor = new THREE.Mesh(floorPlane, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            mazeGroup.add(floor);
+
+            for (let z = 0; z < gridHeight; z++) {
+                for (let x = 0; x < gridWidth; x++) {
+                    if (grid[z][x] === 0) {
+                        const wall = new THREE.Mesh(wallGeo, wallMaterial);
+                        const wallPos = gridToWorld(x, z);
+                        wall.position.set(wallPos.x, WALL_HEIGHT / 2, wallPos.z);
+                        mazeGroup.add(wall);
+                    }
+                }
+            }
+        }
+
+        function createGoalMarker(goalCoords) {
+            const goalPos = gridToWorld(goalCoords.x, goalCoords.z);
+            
+            goalMarker = new THREE.Group();
+
+            // Balloon
+            const balloonGeo = new THREE.SphereGeometry(TILE_SIZE * 0.2, 32, 32);
+            const balloonMat = new THREE.MeshStandardMaterial({ color: 0xdc3545, roughness: 0.4, metalness: 0.1 });
+            const balloon = new THREE.Mesh(balloonGeo, balloonMat);
+
+            // String
+            const stringMat = new THREE.LineBasicMaterial({ color: 0x555555 });
+            const points = [];
+            points.push(new THREE.Vector3(0, 0, 0));
+            points.push(new THREE.Vector3(0, -WALL_HEIGHT, 0));
+            const stringGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const balloonString = new THREE.Line(stringGeo, stringMat);
+            
+            goalMarker.add(balloon);
+            goalMarker.add(balloonString);
+            
+            goalMarker.position.copy(goalPos);
+            goalMarker.position.y = WALL_HEIGHT; // Start floating above the ground
+            scene.add(goalMarker);
+        }
+
+        function placeLampposts(grid) {
+            const postGeo = new THREE.CylinderGeometry(0.1, 0.1, WALL_HEIGHT * 0.8, 8);
+            const postMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.8 });
+            const lightGeo = new THREE.SphereGeometry(0.3, 8, 8);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+
+            for (let z = 0; z < grid.length; z++) {
+                for (let x = 0; x < grid[0].length; x++) {
+                    if (grid[z][x] === 1) {
+                        const neighbors = getNeighbors(x, z, grid);
+                        if (neighbors.length >= 3) { // It's an intersection
+                            const lamppost = new THREE.Group();
+                            const post = new THREE.Mesh(postGeo, postMat);
+                            const lightSphere = new THREE.Mesh(lightGeo, lightMat);
+                            lightSphere.position.y = WALL_HEIGHT * 0.4;
+                            
+                            const pointLight = new THREE.PointLight(0xffddaa, 0, TILE_SIZE * 1.5, 2);
+                            pointLight.position.y = WALL_HEIGHT * 0.4;
+                            pointLight.name = 'light';
+
+                            lamppost.add(post);
+                            lamppost.add(lightSphere);
+                            lamppost.add(pointLight);
+
+                            const pos = gridToWorld(x, z);
+                            lamppost.position.set(pos.x - TILE_SIZE/2.5, WALL_HEIGHT * 0.4, pos.z - TILE_SIZE/2.5);
+                            lamppostGroup.add(lamppost);
+                        }
+                    }
+                }
+            }
+        }
+
+        function createMaterials() {
+            wallMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color')),
+                roughness: 0.8,
+                metalness: 0.2
+            });
+
+            floorMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--floor-color')),
+                roughness: 0.9
+            });
+
+            landmarkMaterial = new THREE.MeshBasicMaterial({
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color')),
+                transparent: true,
+                blending: THREE.AdditiveBlending
+            });
+        }
+
+        // ====================================================================
+        // 小地图 (Minimap)
+        // ====================================================================
+
+        let lastPlayerGridPos = { x: -1, z: -1 };
+
+        function drawMinimapBackground(grid, start, goal) {
+            const gridWidth = grid[0].length;
+            const gridHeight = grid.length;
+            const canvas = minimap;
+            canvas.width = 500;
+            canvas.height = 500;
+            const ctx = minimapCtx;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const cellWidth = canvas.width / gridWidth;
+            const cellHeight = canvas.height / gridHeight;
+
+            ctx.fillStyle = '#cccccc'; // Light grey for paths
+            for (let z = 0; z < gridHeight; z++) {
+                for (let x = 0; x < gridWidth; x++) {
+                    if (grid[z][x] === 1) {
+                        ctx.fillRect(x * cellWidth, z * cellHeight, cellWidth, cellHeight);
+                    }
+                }
+            }
+
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--start-color');
+            ctx.fillRect(start.x * cellWidth, start.z * cellHeight, cellWidth, cellHeight);
+            
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--goal-color');
+            ctx.fillRect(goal.x * cellWidth, goal.z * cellHeight, cellWidth, cellHeight);
+        }
+
+        function updateMinimapPlayer() {
+            const level = levels[currentLevelIndex];
+            if (!level) return;
+            const { grid, start, goal } = level;
+            const gridPos = worldToGrid(player.position);
+
+            if (gridPos.x === lastPlayerGridPos.x && gridPos.z === lastPlayerGridPos.z) {
+                return;
+            }
+            
+            lastPlayerGridPos = { ...gridPos };
+
+            drawMinimapBackground(grid, start, goal);
+
+            const ctx = minimapCtx;
+            const gridWidth = grid[0].length;
+            const gridHeight = grid.length;
+            const cellWidth = ctx.canvas.width / gridWidth;
+            const cellHeight = ctx.canvas.height / gridHeight;
+
+            const playerX = (gridPos.x + 0.5) * cellWidth;
+            const playerZ = (gridPos.z + 0.5) * cellHeight;
+
+            // Draw a glowing red dot for the player
+            ctx.save();
+            ctx.fillStyle = 'red';
+            ctx.shadowColor = 'rgba(255, 0, 0, 0.9)';
+            ctx.shadowBlur = cellWidth * 0.8;
+            ctx.beginPath();
+            ctx.arc(playerX, playerZ, cellWidth * 0.4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // ====================================================================
+        // 寻路算法 (Pathfinding - BFS) for step counting
+        // ====================================================================
+
+        function getNeighbors(x, z, grid) {
+            const neighbors = [];
+            const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            for (const [dx, dz] of dirs) {
+                const newX = x + dx;
+                const newZ = z + dz;
+                if (newZ >= 0 && newZ < grid.length && newX >= 0 && newX < grid[0].length && grid[newZ][newX] === 1) {
+                    neighbors.push({ x: newX, z: newZ });
+                }
+            }
+            return neighbors;
+        }
+
+        function findShortestPath(level) {
+            const { grid, start, goal } = level;
+            const queue = [{ x: start.x, z: start.z, path: [] }];
+            const visited = new Set([`${start.x},${start.z}`]);
+
+            while (queue.length > 0) {
+                const { x, z, path } = queue.shift();
+
+                if (x === goal.x && z === goal.z) {
+                    return { path, choices: path.length };
+                }
+
+                const neighbors = getNeighbors(x, z, grid);
+                for (const neighbor of neighbors) {
+                    const key = `${neighbor.x},${neighbor.z}`;
+                    if (!visited.has(key)) {
+                        visited.add(key);
+                        const newPath = path.concat([{x, z}]);
+                        queue.push({ ...neighbor, path: newPath });
+                    }
+                }
+            }
+            return null; // No path found
+        }
+        
+        // ====================================================================
+        // 菜单与UI逻辑 (Menu & UI Logic)
+        // ====================================================================
+        
+        function updateUIText() {
+            document.querySelectorAll('[data-lang-zh]').forEach(el => {
+                const key = currentLanguage === 'zh' ? 'langZh' : 'langEn';
+                if (el.dataset[key]) {
+                    if (el.tagName === 'OPTION') {
+                        el.textContent = el.dataset[key];
+                    } else {
+                        el.textContent = el.dataset[key];
+                    }
+                }
+            });
+             document.querySelectorAll('select').forEach(select => {
+                select.querySelectorAll('option').forEach(option => {
+                    const key = currentLanguage === 'zh' ? 'langZh' : 'langEn';
+                    if (option.dataset[key]) {
+                        option.textContent = option.dataset[key];
+                    }
+                });
+            });
+            document.querySelectorAll('[data-lang-placeholder-zh]').forEach(el => {
+                const key = currentLanguage === 'zh' ? 'langPlaceholderZh' : 'langPlaceholderEn';
+                 if (el.dataset[key]) {
+                    el.placeholder = el.dataset[key];
+                }
+            });
+            
+            // Dynamic text
+            const welcomeMsg = document.getElementById('welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.textContent = translations[currentLanguage].welcome(playerInfo.nickname);
+            }
+            if (gameState === 'AT_INTERSECTION') {
+                updateChoicePrompt();
+            }
+            if (document.getElementById('dev-panel').style.display === 'block') {
+                setupDevPanel();
+            }
+        }
+
+        function togglePauseMenu() {
+            const menu = document.getElementById('pause-menu-modal');
+            const isPaused = menu.style.display === 'flex';
+
+            if (isPaused) {
+                menu.style.display = 'none';
+                gameState = previousGameState;
+            } else {
+                if(gameState !== 'AT_INTERSECTION' && gameState !== 'DRIVING') return;
+                previousGameState = gameState;
+                gameState = 'PAUSED';
+                menu.style.display = 'flex';
+            }
+        }
+
+        function showLevelSelectModal() {
+            const grid = document.getElementById('level-select-grid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < levels.length; i++) {
+                const button = document.createElement('button');
+                button.textContent = i + 1;
+                const isUnlocked = gameMode === 'free' || i <= unlockedLevel;
+                button.disabled = !isUnlocked;
+                if (isUnlocked) {
+                    button.onclick = () => {
+                        document.getElementById('level-select-modal').style.display = 'none';
+                        togglePauseMenu();
+                        loadLevel(i);
+                    };
+                }
+                grid.appendChild(button);
+            }
+
+            document.getElementById('pause-menu-modal').style.display = 'none';
+            document.getElementById('level-select-modal').style.display = 'flex';
+        }
+
+        function resetGame() {
+            unlockedLevel = 0;
+            playerInfo = { nickname: 'Driver', gender: 'other' };
+            document.getElementById('nickname-input').value = '';
+            
+            const modals = document.querySelectorAll('.modal-overlay');
+            modals.forEach(modal => modal.style.display = 'none');
+            
+            document.getElementById('startup-modal').style.display = 'flex';
+            gameState = 'STARTUP_MODAL';
+            updateUIText();
+        }
+        
+        // ====================================================================
+        // 启动 (Boot)
+        // ====================================================================
+        init();
+
+    </script>
+</body>
+</html>
