@@ -1283,10 +1283,6 @@
             if (!level) return;
             const { grid, start, goal } = level;
             const gridPos = worldToGrid(player.position);
-
-            if (gridPos.x === lastPlayerGridPos.x && gridPos.z === lastPlayerGridPos.z) {
-                return;
-            }
             
             lastPlayerGridPos = { ...gridPos };
 
@@ -1301,14 +1297,33 @@
             const playerX = (gridPos.x + 0.5) * cellWidth;
             const playerZ = (gridPos.z + 0.5) * cellHeight;
 
-            // Draw a glowing red dot for the player
+            // Draw a directional arrow for the player
             ctx.save();
-            ctx.fillStyle = 'red';
-            ctx.shadowColor = 'rgba(255, 0, 0, 0.9)';
-            ctx.shadowBlur = cellWidth * 0.8;
+            const dirVec = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
+            const angle = Math.atan2(dirVec.z, dirVec.x);
+            ctx.translate(playerX, playerZ);
+            ctx.rotate(angle);
+            const size = Math.min(cellWidth, cellHeight) * 0.9;
+            const half = size * 0.5;
+            const tail = -half * 0.6;
             ctx.beginPath();
-            ctx.arc(playerX, playerZ, cellWidth * 0.4, 0, 2 * Math.PI);
+            ctx.moveTo(half, 0);
+            ctx.lineTo(tail, -half * 0.5);
+            ctx.lineTo(tail,  half * 0.5);
+            ctx.closePath();
+            
+            // --- MODIFICATION START ---
+            // Changed the arrow color to a glowing green.
+            ctx.fillStyle = '#00ff00'; // Changed from 'red' to bright green
+            ctx.shadowColor = 'rgba(50, 255, 50, 0.9)'; // Green glow
+            ctx.shadowBlur = size * 0.6; // Enhanced glow effect
+            // --- MODIFICATION END ---
+
             ctx.fill();
+            
+            ctx.lineWidth = Math.max(1, size * 0.08);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; // Slightly transparent white for a softer edge
+            ctx.stroke();
             ctx.restore();
         }
 
