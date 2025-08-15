@@ -6,27 +6,22 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v6.2 编辑器版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.0 动画微调版 ##
     ============================================================================
 
     这是一款面向中老年用户的、极简交互的第一人称3D迷宫驾驶游戏。
-    v5.8 版本新增了地图编辑器和自定义模式，并优化了转向动画。
+    v7.0 版本根据用户反馈，微调了终点招财猫模型的动画效果。
 
-    ### v5.8 更新内容 (What's New in v5.8)
-    1.  **高级地图编辑器 (Advanced Map Editor)**:
-        * 主菜单新增“地图编辑器”入口。
-        * 玩家可以保存多达15张自定义地图，并随时进行编辑、删除和游玩。
-        * 所有自定义地图将保存在浏览器中。
-    2.  **新增自定义模式 (New Custom Mode)**:
-        * 主菜单的“自定义模式”按钮允许玩家进入管理界面，选择、挑战自己设计的地图。
-    3.  **地图视觉优化 (Map Visuals Improved)**:
-        * 提高了小地图和全屏地图中墙壁（深灰色）和路径（浅灰色）的颜色对比度，使其更加清晰。
-    4.  **平滑转向动画 (Smooth Turning Animation)**:
-        * 按下 `A` 或 `D` 键后，车辆的第一人称视角会平滑地旋转到新方向，取代了之前的瞬时切换。
+    ### v7.0 更新内容 (What's New in v7.0)
+    1.  **微调招财猫动画 (Adjusted Lucky Cat Animation)**:
+        * 将招财猫手臂向前挥动的最大幅度从90度调整为60度，使其摇摆动作更加自然、含蓄，并确保动作完全在身体前方。
+    2.  **保留所有核心功能**:
+        * 保留了修复后的HUD箭头逻辑、方向盘、手部模型等所有沉浸式视觉元素。
+        * 保留了所有游戏模式（通关、自由、自定义、编辑器）和导航模式（小地图/自主导航）。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
-        * 在迷宫的任何一格，车辆都会停下等待您的指令。
+        * 在迷宫的任何一格，车辆都会停下。此时可以观察前方浮动的箭头来决定方向。
     2.  **选择方向或前进**:
         * 按下 `D` 键，车辆会**平滑地向右转90度**。
         * 按下 `A` 键，车辆会**平滑地向左转90度**。
@@ -36,7 +31,7 @@
     * `A`: 向左转90度 (Turn Left)。
     * `D`: 向右转90度 (Turn Right)。
     * `空格 (Space)`: 前进一格 (Move Forward)。
-    * `E`: (仅挑战模式) 打开/关闭大地图 (Toggle Full Map in Challenge Mode)。
+    * `E`: (仅自主导航模式) 打开/关闭大地图 (Toggle Full Map in Autonomous Navigation Mode)。
     * `ESC`: 呼出/关闭菜单 (Toggle Menu)。
     * `鼠标左键`: 点击UI元素 (Click UI Elements)。
 
@@ -48,6 +43,7 @@
             --text-color: #333333; /* Dark Grey for text */
             --primary-color: #007bff; /* Bright Blue */
             --highlight-color: #28a745; /* Green */
+            --danger-color: #dc3545; /* Red */
             --wall-color-ns: #f5deb3; /* Wheat - for North-South walls */
             --wall-color-ew: #faf0e6; /* Linen - slightly lighter for East-West walls */
             --floor-color: #E0E0E0; /* Fallback color, not really used with texture */
@@ -249,10 +245,34 @@
             margin: 10px auto;
             display: block;
         }
+        
+        .modal-content .button-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .modal-content .button-row button {
+            width: 45%;
+            max-width: 150px;
+        }
+
+        .modal-content button.danger {
+            background-color: var(--danger-color);
+        }
+        .modal-content button.secondary {
+            background-color: #6c757d;
+        }
 
         .modal-content button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
+        }
+        .modal-content button.danger:hover {
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+        }
+        .modal-content button.secondary:hover {
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
         }
         
         .modal-content button:disabled {
@@ -386,7 +406,7 @@
         }
         .editor-cell {
             border: 1px solid #dee2e6;
-            transition: background-color 0.1s;
+            transition: background-color: 0.1s;
         }
         .editor-cell:hover {
             background-color: #ced4da;
@@ -398,9 +418,34 @@
         
         .lang-en { display: none; }
 
+    
+    /* ===== Robust Minimal Fullscreen Intro Splash ===== */
+    #intro-splash-video{
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: 2147483647; /* stay on top of everything */
+      opacity: 0; transition: opacity .6s ease;
+      background:#000;
+      pointer-events: none; /* allow UI underneath */
+      transform: translateZ(0); /* force own compositor layer */
+    }
+
+
+    
+    /* Hard-disable any legacy intro frame elements (if present) */
+    #intro-video-overlay, #intro-video-frame, #intro-brand, #intro-progress, #intro-countdown { display: none !important; }
+
+
     </style>
 </head>
 <body>
+
+    <!-- Minimal Fullscreen Intro Splash (fade in/out, no frame) -->
+    <video id="intro-splash-video" preload="auto" playsinline muted autoplay>
+      <source src="intro.mp4" type="video/mp4">
+    </video>
+
 
     <div id="game-container"></div>
 
@@ -444,10 +489,9 @@
         <div class="modal-content">
             <h2 id="welcome-message"></h2>
             <button id="campaign-mode-btn" data-lang-zh="通关模式" data-lang-en="Campaign Mode">通关模式</button>
-            <button id="challenge-mode-btn" data-lang-zh="挑战模式" data-lang-en="Challenge Mode">挑战模式</button>
+            <button id="free-mode-btn" data-lang-zh="自由模式" data-lang-en="Free Mode">自由模式</button>
             <button id="custom-mode-btn" data-lang-zh="自定义模式" data-lang-en="Custom Mode" disabled>自定义模式</button>
             <button id="editor-mode-btn" data-lang-zh="地图编辑器" data-lang-en="Map Editor">地图编辑器</button>
-            <button id="free-mode-btn" data-lang-zh="自由模式" data-lang-en="Free Mode">自由模式</button>
         </div>
     </div>
     
@@ -522,7 +566,7 @@
             <div id="editor-grid"></div>
             <p id="editor-message" style="color: red; min-height: 1.2em;"></p>
             <button id="editor-save-btn" data-lang-zh="保存地图" data-lang-en="Save Map">保存地图</button>
-            <button id="editor-delete-btn" data-lang-zh="删除此地图" data-lang-en="Delete Map" style="background-color: #dc3545;">删除此地图</button>
+            <button id="editor-delete-btn" data-lang-zh="删除此地图" data-lang-en="Delete Map" class="danger">删除此地图</button>
             <button id="editor-back-btn" data-lang-zh="返回主菜单" data-lang-en="Back to Menu">返回主菜单</button>
         </div>
     </div>
@@ -534,17 +578,27 @@
             <p data-lang-zh="选择一张地图进行操作。" data-lang-en="Select a map to continue.">选择一张地图进行操作。</p>
             <button id="custom-play-btn" data-lang-zh="游玩" data-lang-en="Play" disabled>游玩</button>
             <button id="custom-edit-btn" data-lang-zh="编辑" data-lang-en="Edit" disabled>编辑</button>
-            <button id="custom-delete-btn" data-lang-zh="删除" data-lang-en="Delete" disabled style="background-color: #dc3545;">删除</button>
+            <button id="custom-delete-btn" data-lang-zh="删除" data-lang-en="Delete" disabled class="danger">删除</button>
             <button id="custom-back-btn" data-lang-zh="返回主菜单" data-lang-en="Back to Menu">返回主菜单</button>
         </div>
     </div>
 
-    <div id="custom-mode-select-modal" class="modal-overlay" style="display: none;">
+    <div id="mode-select-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
-            <h2 data-lang-zh="选择模式" data-lang-en="Select Mode">选择模式</h2>
-            <p data-lang-zh="请选择您想用来游玩自定义地图的模式。" data-lang-en="Please select the mode for your custom map.">请选择您想用来游玩自定义地图的模式。</p>
-            <button id="custom-campaign-btn" data-lang-zh="小地图模式" data-lang-en="Minimap Mode">小地图模式</button>
-            <button id="custom-challenge-btn" data-lang-zh="挑战模式" data-lang-en="Challenge Mode">挑战模式</button>
+            <h2 data-lang-zh="选择导航模式" data-lang-en="Select Navigation Mode">选择导航模式</h2>
+            <button id="mode-select-minimap-btn" data-lang-zh="小地图导航" data-lang-en="Minimap Navigation">小地图导航</button>
+            <button id="mode-select-challenge-btn" data-lang-zh="自主导航" data-lang-en="Autonomous Navigation">自主导航</button>
+        </div>
+    </div>
+    
+    <div id="confirm-reset-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 data-lang-zh="确认重置" data-lang-en="Confirm Reset">确认重置</h2>
+            <p data-lang-zh="您确定要重置所有游戏数据吗？此操作无法撤销。" data-lang-en="Are you sure you want to reset all game data? This action cannot be undone.">您确定要重置所有游戏数据吗？此操作无法撤销。</p>
+            <div class="button-row">
+                <button id="confirm-reset-btn" class="danger" data-lang-zh="确认" data-lang-en="Confirm">确认</button>
+                <button id="cancel-reset-btn" class="secondary" data-lang-zh="取消" data-lang-en="Cancel">取消</button>
+            </div>
         </div>
     </div>
 
@@ -574,11 +628,12 @@
         const TURN_SPEED = Math.PI * 2;
 
         let scene, camera, renderer, clock;
-        let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup;
+        let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel;
         let minimap, minimapCtx;
         
         let gameState = 'STARTUP_MODAL';
-        let gameMode = 'campaign';
+        let gameMode = 'campaign'; // campaign, free, custom
+        let navigationMode = 'minimap'; // minimap, limited
         let currentLevelIndex = 0;
         let playerInfo = { nickname: 'Driver', gender: 'other' };
 
@@ -598,6 +653,7 @@
         let hemisphereLight, dirLight;
         
         let customLevels = [];
+        let luckyCatArm;
 
         let currentLanguage = 'zh';
 
@@ -737,6 +793,78 @@
             return { grid, start, goal };
         });
 
+        
+        // ====================== Splash Fade: Autoplay + First-Frame Preview ======================
+        function setupIntroSplashFade() {
+            const splash = document.getElementById('intro-splash-video');
+            if (!splash) return;
+
+            // Force autoplay preconditions
+            try { splash.muted = true; } catch(e){}
+            splash.setAttribute('muted', '');
+            splash.setAttribute('autoplay', '');
+            splash.setAttribute('playsinline', '');
+            try { splash.playsInline = true; } catch(e){}
+
+            let closed = false;
+            let shown = false;
+            let progressed = false;
+
+            const show = () => {
+                if (shown) return;
+                shown = true;
+                splash.style.opacity = '1';
+            };
+            const close = () => {
+                if (closed) return;
+                closed = true;
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    try { splash.pause(); } catch(e){}
+                    if (splash.parentNode) splash.parentNode.removeChild(splash);
+                }, 650);
+            };
+
+            // Show ASAP when we can draw a frame (covers autoplay-blocked cases)
+            splash.addEventListener('loadedmetadata', () => {
+                try { splash.currentTime = 0.05; } catch(e){}
+            });
+            splash.addEventListener('seeked', show, { once: true });
+            splash.addEventListener('loadeddata', show, { once: true });
+            splash.addEventListener('canplay', show, { once: true });
+            splash.addEventListener('timeupdate', () => {
+                if (splash.currentTime > 0.1) progressed = true;
+            });
+
+            // Normal end
+            splash.addEventListener('ended', close);
+
+            // Error handling: quick fade out
+            const quickFail = () => setTimeout(close, 800);
+            ['error','stalled','emptied','abort'].forEach(ev => splash.addEventListener(ev, quickFail, { once: true }));
+
+            // Kick playback; if blocked, still show first frame then auto close later
+            const p = splash.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(() => {
+                    // ignore; rely on first-frame preview + timeout
+                });
+            }
+
+            // If nothing progresses, auto close to avoid hanging black
+            setTimeout(() => {
+                if (!progressed) close();
+            }, 6000);
+
+            // If tab becomes active later, retry play
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && !closed) {
+                    splash.play().catch(()=>{});
+                }
+            });
+        }
+
+
         // ====================================================================
         // 初始化函数 (Initialization)
         // ====================================================================
@@ -783,11 +911,15 @@
             camera.add(headLight);
 
             mazeGroup = new THREE.Group();
-            landmarksGroup = new THREE.Group();
             sceneryGroup = new THREE.Group();
             scene.add(mazeGroup);
-            scene.add(landmarksGroup);
             scene.add(sceneryGroup);
+            
+            landmarksGroup = new THREE.Group();
+            camera.add(landmarksGroup);
+            
+            steeringWheel = createSteeringWheel();
+            camera.add(steeringWheel);
             
             minimap = document.getElementById('minimap-canvas');
             minimapCtx = minimap.getContext('2d');
@@ -803,6 +935,7 @@
             updateUIText();
             
             animate();
+            setupIntroSplashFade();
         }
 
         function setupUI() {
@@ -828,43 +961,47 @@
             document.getElementById('campaign-mode-btn').addEventListener('click', () => {
                 gameMode = 'campaign';
                 document.getElementById('main-menu-modal').style.display = 'none';
-                document.getElementById('dev-panel').style.display = 'none';
-                loadLevel(0);
-            });
-            
-            document.getElementById('challenge-mode-btn').addEventListener('click', () => {
-                gameMode = 'challenge';
-                document.getElementById('main-menu-modal').style.display = 'none';
-                document.getElementById('dev-panel').style.display = 'none';
-                loadLevel(0);
+                document.getElementById('mode-select-modal').style.display = 'flex';
             });
 
             document.getElementById('free-mode-btn').addEventListener('click', () => {
-                gameMode = 'free';
+                gameMode = 'free'; 
                 document.getElementById('main-menu-modal').style.display = 'none';
-                setupDevPanel();
-                document.getElementById('dev-panel').style.display = 'block';
-                loadLevel(0);
+                document.getElementById('mode-select-modal').style.display = 'flex';
             });
             
             document.getElementById('editor-mode-btn').addEventListener('click', () => showEditor());
             
             document.getElementById('custom-mode-btn').addEventListener('click', () => {
                 if (customLevels.some(level => level !== null)) {
+                    gameMode = 'custom';
                     showCustomMapsModal();
                 }
             });
             
-            document.getElementById('custom-campaign-btn').addEventListener('click', () => {
-                gameMode = 'campaign';
-                document.getElementById('custom-mode-select-modal').style.display = 'none';
-                loadLevel(customLevels[selectedCustomMapIndex]);
+            function startGameFromModeSelect() {
+                document.getElementById('mode-select-modal').style.display = 'none';
+                
+                if (gameMode === 'free') {
+                    setupDevPanel();
+                    document.getElementById('dev-panel').style.display = 'block';
+                    loadLevel(0);
+                } else if (gameMode === 'custom') {
+                    loadLevel(customLevels[selectedCustomMapIndex]);
+                } else if (gameMode === 'campaign') {
+                    document.getElementById('dev-panel').style.display = 'none';
+                    loadLevel(0);
+                }
+            }
+
+            document.getElementById('mode-select-minimap-btn').addEventListener('click', () => {
+                navigationMode = 'minimap';
+                startGameFromModeSelect();
             });
             
-            document.getElementById('custom-challenge-btn').addEventListener('click', () => {
-                gameMode = 'challenge';
-                document.getElementById('custom-mode-select-modal').style.display = 'none';
-                loadLevel(customLevels[selectedCustomMapIndex]);
+            document.getElementById('mode-select-challenge-btn').addEventListener('click', () => {
+                navigationMode = 'limited';
+                startGameFromModeSelect();
             });
 
             document.getElementById('next-level-btn').addEventListener('click', () => {
@@ -887,7 +1024,7 @@
             document.getElementById('minimap-container').addEventListener('click', () => {
                 if (gameState === 'BIG_MAP') {
                     const container = document.getElementById('minimap-container');
-                    if (gameMode === 'challenge') {
+                    if (navigationMode === 'limited') {
                         container.style.display = 'none';
                     } else {
                         container.classList.remove('big-map');
@@ -924,10 +1061,18 @@
                 showMainMenu();
             });
             document.getElementById('level-select-btn').addEventListener('click', showLevelSelectModal);
+            
             document.getElementById('reset-game-btn').addEventListener('click', () => {
-                if(confirm(translations[currentLanguage].confirmReset)) {
-                    resetGame();
-                }
+                document.getElementById('confirm-reset-modal').style.display = 'flex';
+            });
+            
+            document.getElementById('confirm-reset-btn').addEventListener('click', () => {
+                document.getElementById('confirm-reset-modal').style.display = 'none';
+                resetGame();
+            });
+
+            document.getElementById('cancel-reset-btn').addEventListener('click', () => {
+                document.getElementById('confirm-reset-modal').style.display = 'none';
             });
 
             document.getElementById('close-level-select-btn').addEventListener('click', () => {
@@ -987,7 +1132,7 @@
             document.getElementById('choice-prompt').style.display = 'none';
 
             while(mazeGroup.children.length > 0){ mazeGroup.remove(mazeGroup.children[0]); }
-            while(landmarksGroup.children.length > 0){ landmarksGroup.remove(landmarksGroup.children[0]); }
+            while(landmarksGroup.children.length > 0){ camera.remove(landmarksGroup); landmarksGroup = new THREE.Group(); camera.add(landmarksGroup); }
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
             if(goalMarker) scene.remove(goalMarker);
 
@@ -1016,7 +1161,7 @@
             minimapContainer.classList.remove('small-map');
             minimapContainer.classList.add('big-map');
             
-            if (gameMode === 'challenge') {
+            if (navigationMode === 'limited') {
                 mapViewChances = 3;
             }
             updateHUD();
@@ -1069,6 +1214,7 @@
                 return;
             }
             
+            createDirectionalHelpers();
             updateChoicePrompt();
             gameState = 'AT_INTERSECTION';
         }
@@ -1099,13 +1245,13 @@
             const helperToggle = document.getElementById('helper-text-toggle').value;
             const lang = translations[currentLanguage];
 
-            if (gameState !== 'AT_INTERSECTION') {
+            if (gameState !== 'AT_INTERSECTION' || helperToggle === 'off') {
                 prompt.style.display = 'none';
                 return;
             }
             
             prompt.style.display = 'inline-block';
-            prompt.innerHTML = (helperToggle === 'on' ? `<span style="font-size: 0.8em;">${lang.helperText}</span>` : '');
+            prompt.innerHTML = `<span style="font-size: 0.8em;">${lang.helperText}</span>`;
         }
 
         function setupMove() {
@@ -1120,6 +1266,9 @@
             } else {
                 playerChoices++;
                 document.getElementById('choice-prompt').style.display = 'none';
+                while (landmarksGroup.children.length > 0) {
+                    landmarksGroup.remove(landmarksGroup.children[0]);
+                }
                 targetPosition.copy(gridToWorld(nextGridX, nextGridZ, level.grid));
                 gameState = 'DRIVING';
             }
@@ -1135,7 +1284,7 @@
             
             nextBtn.style.display = 'none';
 
-            if (gameMode === 'campaign' || gameMode === 'challenge') {
+            if (gameMode === 'campaign') {
                 unlockedLevel = Math.max(unlockedLevel, currentLevelIndex + 1);
                 const R = optimalChoices > 0 ? playerChoices / optimalChoices : 1;
                 let medal = '';
@@ -1210,8 +1359,12 @@
 
 
             if (goalMarker) {
-                goalMarker.position.y = WALL_HEIGHT + 2 + Math.sin(elapsedTime) * 0.5;
+                goalMarker.position.y = WALL_HEIGHT/2 - 1.5 + Math.sin(elapsedTime) * 0.2;
                 goalMarker.rotation.y += delta * 0.2;
+                if (luckyCatArm) {
+                    // Swing from 0 (vertical) to -60 degrees (forward)
+                    luckyCatArm.rotation.x = -Math.PI / 6 + Math.sin(elapsedTime * 5) * Math.PI / 6;
+                }
             }
 
             if (gameState === 'TURNING') {
@@ -1246,6 +1399,10 @@
                 }
             }
             
+            if (steeringWheel) {
+                steeringWheel.rotation.z = (player.rotation.y - targetRotation.y) * 2;
+            }
+            
             if (['DRIVING', 'TURNING', 'AT_INTERSECTION', 'BIG_MAP'].includes(gameState)) {
                 updateMinimapPlayer();
             }
@@ -1275,7 +1432,7 @@
             }
             
             if (key === 'e') {
-                if (gameMode === 'challenge') {
+                if (navigationMode === 'limited') {
                     toggleChallengeMap();
                 }
                 return;
@@ -1362,30 +1519,232 @@
                 }
             }
         }
+        
+        function createLuckyCat() {
+            const catGroup = new THREE.Group();
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.3, metalness: 0.1 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1, metalness: 0.5 });
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+            const pinkMat = new THREE.MeshStandardMaterial({ color: 0xffc0cb, roughness: 0.4 });
+
+            // Body
+            const bodyGeo = new THREE.SphereGeometry(1.5, 32, 16);
+            const body = new THREE.Mesh(bodyGeo, whiteMat);
+            body.scale.y = 0.8;
+            catGroup.add(body);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 16), whiteMat);
+            head.position.y = 1.8;
+            catGroup.add(head);
+
+            // Ears
+            const earGeo = new THREE.ConeGeometry(0.4, 0.8, 8);
+            const leftEar = new THREE.Mesh(earGeo, whiteMat);
+            leftEar.position.set(-0.8, 2.8, 0);
+            leftEar.rotation.z = Math.PI / 8;
+            catGroup.add(leftEar);
+            const rightEar = new THREE.Mesh(earGeo, redMat);
+            rightEar.position.set(0.8, 2.8, 0);
+            rightEar.rotation.z = -Math.PI / 8;
+            catGroup.add(rightEar);
+            
+            // Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.1, 12, 8);
+            const leftEye = new THREE.Mesh(eyeGeo, blackMat);
+            leftEye.position.set(-0.4, 0.2, 1.11);
+            head.add(leftEye);
+            const rightEye = new THREE.Mesh(eyeGeo, blackMat);
+            rightEye.position.set(0.4, 0.2, 1.11);
+            head.add(rightEye);
+            
+            // Nose
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), blackMat);
+            nose.position.set(0, 0, 1.18);
+            nose.scale.set(1.5, 1, 1);
+            head.add(nose);
+            
+            // Whiskers
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 });
+            for(let i = 0; i < 3; i++) {
+                const whiskerPointsL = [ new THREE.Vector3(-0.2, -0.1, 1.15), new THREE.Vector3(-1.2, 0 - i * 0.15, 0.8) ];
+                const whiskerPointsR = [ new THREE.Vector3(0.2, -0.1, 1.15), new THREE.Vector3(1.2, 0 - i * 0.15, 0.8) ];
+                head.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(whiskerPointsL), lineMat));
+                head.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(whiskerPointsR), lineMat));
+            }
+
+            // Collar
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32), redMat);
+            collar.position.y = 1.2;
+            collar.rotation.x = Math.PI / 2;
+            catGroup.add(collar);
+            
+            // Bell
+            const bell = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8), goldMat);
+            bell.position.set(0, 1.2, 1.3);
+            catGroup.add(bell);
+
+            // Arm
+            luckyCatArm = new THREE.Object3D();
+            luckyCatArm.position.set(-1.1, 1.1, 0.2);
+            catGroup.add(luckyCatArm);
+
+            const armCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0.8, -0.3),
+                new THREE.Vector3(0, 1.5, -0.1)
+            ]);
+
+            const armGeo = new THREE.TubeGeometry(armCurve, 20, 0.3, 8, false);
+            const arm = new THREE.Mesh(armGeo, whiteMat);
+            luckyCatArm.add(arm);
+
+            // Paw
+            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), whiteMat);
+            paw.scale.set(1, 0.8, 1);
+            paw.position.copy(armCurve.points[armCurve.points.length - 1]);
+            paw.rotation.y = Math.PI; // Rotate paw to face forward
+            luckyCatArm.add(paw);
+            
+            // Paw Pads
+            const mainPad = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), pinkMat);
+            mainPad.position.set(0, -0.1, -0.3);
+            mainPad.scale.set(1.2, 1, 0.5);
+            paw.add(mainPad);
+            
+            for(let i=0; i<3; i++) {
+                const pad = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pinkMat);
+                pad.position.set(-0.2 + i * 0.2, 0.1, -0.35);
+                pad.scale.z = 0.5;
+                paw.add(pad);
+            }
+
+            return catGroup;
+        }
 
         function createGoalMarker(goalCoords) {
             const level = (currentLevelIndex === -1) ? customLevels[selectedCustomMapIndex] : levels[currentLevelIndex];
             const goalPos = gridToWorld(goalCoords.x, goalCoords.z, level.grid);
             
             goalMarker = new THREE.Group();
-
-            const balloonGeo = new THREE.SphereGeometry(TILE_SIZE * 0.2, 32, 32);
-            const balloonMat = new THREE.MeshStandardMaterial({ color: 0xdc3545, roughness: 0.4, metalness: 0.1 });
-            const balloon = new THREE.Mesh(balloonGeo, balloonMat);
-
-            const stringMat = new THREE.LineBasicMaterial({ color: 0x555555 });
-            const points = [];
-            points.push(new THREE.Vector3(0, 0, 0));
-            points.push(new THREE.Vector3(0, -WALL_HEIGHT, 0));
-            const stringGeo = new THREE.BufferGeometry().setFromPoints(points);
-            const balloonString = new THREE.Line(stringGeo, stringMat);
             
-            goalMarker.add(balloon);
-            goalMarker.add(balloonString);
+            const cat = createLuckyCat();
+            cat.scale.set(1.5, 1.5, 1.5);
+            goalMarker.add(cat);
             
             goalMarker.position.copy(goalPos);
-            goalMarker.position.y = WALL_HEIGHT;
+            goalMarker.position.y = WALL_HEIGHT/2 - 1.5;
             scene.add(goalMarker);
+        }
+        
+        function createDirectionalHelpers() {
+            while (landmarksGroup.children.length > 0) {
+                landmarksGroup.remove(landmarksGroup.children[0]);
+            }
+
+            const level = (currentLevelIndex === -1) ? customLevels[selectedCustomMapIndex] : levels[currentLevelIndex];
+            const gridPos = worldToGrid(player.position);
+
+            const arrowShape = new THREE.Shape();
+            const w = 0.4;
+            const h = 0.6;
+            arrowShape.moveTo(0, h / 2);
+            arrowShape.lineTo(w / 2, 0);
+            arrowShape.lineTo(w / 4, 0);
+            arrowShape.lineTo(w / 4, -h / 2);
+            arrowShape.lineTo(-w / 4, -h / 2);
+            arrowShape.lineTo(-w / 4, 0);
+            arrowShape.lineTo(-w / 2, 0);
+            arrowShape.closePath();
+            const arrowGeo = new THREE.ShapeGeometry(arrowShape);
+
+            const arrowMat = new THREE.MeshBasicMaterial({
+                color: 0xffc107,
+                transparent: true,
+                opacity: 0.6,
+                side: THREE.DoubleSide
+            });
+
+            // Check FORWARD
+            const forwardVector = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
+            let nextX = gridPos.x + Math.round(forwardVector.x);
+            let nextZ = gridPos.z + Math.round(forwardVector.z);
+            if (nextZ >= 0 && nextZ < level.grid.length && nextX >= 0 && nextX < level.grid[0].length && level.grid[nextZ][nextX] === 1) {
+                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+                arrow.position.set(0, 0, -4);
+                landmarksGroup.add(arrow);
+            }
+
+            // Check LEFT
+            const leftRotation = player.rotation.clone();
+            leftRotation.y += Math.PI / 2;
+            const leftVector = new THREE.Vector3(0, 0, -1).applyEuler(leftRotation);
+            nextX = gridPos.x + Math.round(leftVector.x);
+            nextZ = gridPos.z + Math.round(leftVector.z);
+            if (nextZ >= 0 && nextZ < level.grid.length && nextX >= 0 && nextX < level.grid[0].length && level.grid[nextZ][nextX] === 1) {
+                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+                arrow.position.set(-1.5, 0, -4);
+                arrow.rotation.z = Math.PI / 2;
+                landmarksGroup.add(arrow);
+            }
+
+            // Check RIGHT
+            const rightRotation = player.rotation.clone();
+            rightRotation.y -= Math.PI / 2;
+            const rightVector = new THREE.Vector3(0, 0, -1).applyEuler(rightRotation);
+            nextX = gridPos.x + Math.round(rightVector.x);
+            nextZ = gridPos.z + Math.round(rightVector.z);
+            if (nextZ >= 0 && nextZ < level.grid.length && nextX >= 0 && nextX < level.grid[0].length && level.grid[nextZ][nextX] === 1) {
+                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+                arrow.position.set(1.5, 0, -4);
+                arrow.rotation.z = -Math.PI / 2;
+                landmarksGroup.add(arrow);
+            }
+        }
+        
+        function createSteeringWheel() {
+            const wheelGroup = new THREE.Group();
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0.1 });
+            const gloveMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+            const cuffMat = new THREE.MeshStandardMaterial({ color: 0xcc0000, roughness: 0.6 });
+
+            // Wheel
+            const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.08, 16, 60), wheelMat);
+            wheelGroup.add(wheel);
+            
+            // Cute Gloves
+            const createGlove = () => {
+                const gloveGroup = new THREE.Group();
+                const palm = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), gloveMat);
+                palm.scale.set(1, 1.2, 1);
+                gloveGroup.add(palm);
+                
+                const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), gloveMat);
+                thumb.position.set(-0.15, 0.1, 0);
+                gloveGroup.add(thumb);
+                
+                const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.2, 16), cuffMat);
+                cuff.position.y = -0.15;
+                gloveGroup.add(cuff);
+                
+                return gloveGroup;
+            };
+
+            const leftHand = createGlove();
+            leftHand.position.set(-0.45, 0.1, 0);
+            leftHand.rotation.z = 0.5;
+            wheelGroup.add(leftHand);
+
+            const rightHand = createGlove();
+            rightHand.position.set(0.45, 0.1, 0);
+            rightHand.rotation.z = -0.5;
+            wheelGroup.add(rightHand);
+
+            wheelGroup.position.set(0, -1.2, -2);
+            wheelGroup.rotation.x = -0.5;
+            
+            return wheelGroup;
         }
         
         function createClassicalLamp() {
@@ -1531,20 +1890,30 @@
             canvas.height = 500;
             const ctx = minimapCtx;
             
-            // Draw light path background
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             const cellWidth = canvas.width / gridWidth;
             const cellHeight = canvas.height / gridHeight;
 
-            // Draw dark walls
-            ctx.fillStyle = '#343a40'; 
             for (let z = 0; z < gridHeight; z++) {
                 for (let x = 0; x < gridWidth; x++) {
-                    if (grid[z][x] === 0) { // 0 is wall
-                        ctx.fillRect(x * cellWidth, z * cellHeight, cellWidth, cellHeight);
+                    const xPos = x * cellWidth;
+                    const yPos = z * cellHeight;
+                    
+                    if (grid[z][x] === 0) { // Wall
+                        const wallGradient = ctx.createLinearGradient(xPos, yPos, xPos + cellWidth, yPos + cellHeight);
+                        wallGradient.addColorStop(0, "#555");
+                        wallGradient.addColorStop(0.5, "#222");
+                        wallGradient.addColorStop(1, "#555");
+                        ctx.fillStyle = wallGradient;
+                    } else { // Path
+                        const pathGradient = ctx.createLinearGradient(xPos, yPos, xPos + cellWidth, yPos + cellHeight);
+                        pathGradient.addColorStop(0, "#eee");
+                        pathGradient.addColorStop(0.5, "#fff");
+                        pathGradient.addColorStop(1, "#eee");
+                        ctx.fillStyle = pathGradient;
                     }
+                    ctx.fillRect(xPos, yPos, cellWidth, cellHeight);
                 }
             }
 
@@ -1579,23 +1948,28 @@
             const angle = Math.atan2(dirVec.z, dirVec.x);
             ctx.translate(playerX, playerZ);
             ctx.rotate(angle);
-            const size = Math.min(cellWidth, cellHeight) * 0.9;
+            const size = Math.min(cellWidth, cellHeight) * 1.2; 
             const half = size * 0.5;
-            const tail = -half * 0.6;
+            const tail = -half * 0.8; 
+            
             ctx.beginPath();
             ctx.moveTo(half, 0);
-            ctx.lineTo(tail, -half * 0.5);
-            ctx.lineTo(tail,  half * 0.5);
+            ctx.lineTo(tail, -half * 0.6); 
+            ctx.lineTo(tail,  half * 0.6); 
             ctx.closePath();
             
-            ctx.fillStyle = '#00ff00';
-            ctx.shadowColor = 'rgba(50, 255, 50, 0.9)';
-            ctx.shadowBlur = size * 0.6;
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, half);
+            gradient.addColorStop(0, '#ff8080');
+            gradient.addColorStop(1, '#c00000');
+            
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = 'rgba(255, 0, 0, 0.9)';
+            ctx.shadowBlur = size * 0.7;
 
             ctx.fill();
             
-            ctx.lineWidth = Math.max(1, size * 0.08);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = Math.max(2, size * 0.1); 
+            ctx.strokeStyle = '#006400'; // Dark Green
             ctx.stroke();
             ctx.restore();
         }
@@ -1649,7 +2023,7 @@
         
         function updateHUD() {
             const mapViewCountEl = document.getElementById('map-view-count');
-            if (gameMode === 'challenge') {
+            if (navigationMode === 'limited') {
                 mapViewCountEl.style.display = 'block';
                 mapViewCountEl.textContent = `${translations[currentLanguage].mapChances}: ${mapViewChances}`;
             } else {
@@ -1732,18 +2106,18 @@
             const grid = document.getElementById('level-select-grid');
             grid.innerHTML = '';
             
-            const levelCount = levels.length;
+            const levelCount = (gameMode === 'custom') ? customLevels.filter(l=>l).length : levels.length;
             
             for (let i = 0; i < levelCount; i++) {
                 const button = document.createElement('button');
                 button.textContent = i + 1;
-                const isUnlocked = gameMode === 'free' || i <= unlockedLevel;
+                const isUnlocked = gameMode !== 'campaign' || i <= unlockedLevel;
                 button.disabled = !isUnlocked;
                 if (isUnlocked) {
                     button.onclick = () => {
                         document.getElementById('level-select-modal').style.display = 'none';
                         togglePauseMenu();
-                        loadLevel(i);
+                        loadLevel(gameMode === 'custom' ? customLevels[i] : i);
                     };
                 }
                 grid.appendChild(button);
@@ -1759,7 +2133,11 @@
             document.getElementById('nickname-input').value = '';
             
             const modals = document.querySelectorAll('.modal-overlay');
-            modals.forEach(modal => modal.style.display = 'none');
+            modals.forEach(modal => {
+                if (modal.id !== 'startup-modal') {
+                    modal.style.display = 'none';
+                }
+            });
             
             document.getElementById('startup-modal').style.display = 'flex';
             gameState = 'STARTUP_MODAL';
@@ -2025,7 +2403,7 @@
             document.getElementById('custom-play-btn').onclick = () => {
                 if(selectedCustomMapIndex !== -1) {
                     document.getElementById('custom-maps-modal').style.display = 'none';
-                    document.getElementById('custom-mode-select-modal').style.display = 'flex';
+                    document.getElementById('mode-select-modal').style.display = 'flex';
                 }
             };
             document.getElementById('custom-edit-btn').onclick = () => {
