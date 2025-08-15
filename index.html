@@ -418,34 +418,9 @@
         
         .lang-en { display: none; }
 
-    
-    /* ===== Robust Minimal Fullscreen Intro Splash ===== */
-    #intro-splash-video{
-      position: fixed; inset: 0;
-      width: 100vw; height: 100vh;
-      object-fit: cover;
-      z-index: 2147483647; /* stay on top of everything */
-      opacity: 0; transition: opacity .6s ease;
-      background:#000;
-      pointer-events: none; /* allow UI underneath */
-      transform: translateZ(0); /* force own compositor layer */
-    }
-
-
-    
-    /* Hard-disable any legacy intro frame elements (if present) */
-    #intro-video-overlay, #intro-video-frame, #intro-brand, #intro-progress, #intro-countdown { display: none !important; }
-
-
     </style>
 </head>
 <body>
-
-    <!-- Minimal Fullscreen Intro Splash (fade in/out, no frame) -->
-    <video id="intro-splash-video" preload="auto" playsinline muted autoplay>
-      <source src="intro.mp4" type="video/mp4">
-    </video>
-
 
     <div id="game-container"></div>
 
@@ -627,7 +602,16 @@
         const MOVE_SPEED = 15;
         const TURN_SPEED = Math.PI * 2;
 
-        let scene, camera, renderer, clock;
+        
+// 招财猫动画参数（角度为度，速度为弧度/秒）
+const LUCKY_CAT = {
+    WAVE_CENTER_DEG: 30, // 肩关节中心前倾角
+    WAVE_AMPL_DEG: 10,   // 肩关节摆幅（±）
+    WAVE_SPEED: 5.0,     // 肩关节摆动速度（rad/s）
+    WRIST_AMPL_DEG: 8,   // 腕部小幅“勾手”摆幅（±）
+    WRIST_SPEED: 10.0    // 腕部摆动速度（rad/s）
+};
+let scene, camera, renderer, clock;
         let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel;
         let minimap, minimapCtx;
         
@@ -653,7 +637,7 @@
         let hemisphereLight, dirLight;
         
         let customLevels = [];
-        let luckyCatArm;
+        let luckyCatArm, luckyCatWrist;
 
         let currentLanguage = 'zh';
 
@@ -793,78 +777,6 @@
             return { grid, start, goal };
         });
 
-        
-        // ====================== Splash Fade: Autoplay + First-Frame Preview ======================
-        function setupIntroSplashFade() {
-            const splash = document.getElementById('intro-splash-video');
-            if (!splash) return;
-
-            // Force autoplay preconditions
-            try { splash.muted = true; } catch(e){}
-            splash.setAttribute('muted', '');
-            splash.setAttribute('autoplay', '');
-            splash.setAttribute('playsinline', '');
-            try { splash.playsInline = true; } catch(e){}
-
-            let closed = false;
-            let shown = false;
-            let progressed = false;
-
-            const show = () => {
-                if (shown) return;
-                shown = true;
-                splash.style.opacity = '1';
-            };
-            const close = () => {
-                if (closed) return;
-                closed = true;
-                splash.style.opacity = '0';
-                setTimeout(() => {
-                    try { splash.pause(); } catch(e){}
-                    if (splash.parentNode) splash.parentNode.removeChild(splash);
-                }, 650);
-            };
-
-            // Show ASAP when we can draw a frame (covers autoplay-blocked cases)
-            splash.addEventListener('loadedmetadata', () => {
-                try { splash.currentTime = 0.05; } catch(e){}
-            });
-            splash.addEventListener('seeked', show, { once: true });
-            splash.addEventListener('loadeddata', show, { once: true });
-            splash.addEventListener('canplay', show, { once: true });
-            splash.addEventListener('timeupdate', () => {
-                if (splash.currentTime > 0.1) progressed = true;
-            });
-
-            // Normal end
-            splash.addEventListener('ended', close);
-
-            // Error handling: quick fade out
-            const quickFail = () => setTimeout(close, 800);
-            ['error','stalled','emptied','abort'].forEach(ev => splash.addEventListener(ev, quickFail, { once: true }));
-
-            // Kick playback; if blocked, still show first frame then auto close later
-            const p = splash.play();
-            if (p && typeof p.catch === 'function') {
-                p.catch(() => {
-                    // ignore; rely on first-frame preview + timeout
-                });
-            }
-
-            // If nothing progresses, auto close to avoid hanging black
-            setTimeout(() => {
-                if (!progressed) close();
-            }, 6000);
-
-            // If tab becomes active later, retry play
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible' && !closed) {
-                    splash.play().catch(()=>{});
-                }
-            });
-        }
-
-
         // ====================================================================
         // 初始化函数 (Initialization)
         // ====================================================================
@@ -935,7 +847,6 @@
             updateUIText();
             
             animate();
-            setupIntroSplashFade();
         }
 
         function setupUI() {
@@ -1362,8 +1273,20 @@
                 goalMarker.position.y = WALL_HEIGHT/2 - 1.5 + Math.sin(elapsedTime) * 0.2;
                 goalMarker.rotation.y += delta * 0.2;
                 if (luckyCatArm) {
-                    // Swing from 0 (vertical) to -60 degrees (forward)
-                    luckyCatArm.rotation.x = -Math.PI / 6 + Math.sin(elapsedTime * 5) * Math.PI / 6;
+                    const toRad = THREE.MathUtils.degToRad;
+                    const c  = toRad(LUCKY_CAT.WAVE_CENTER_DEG);
+                    const a  = toRad(LUCKY_CAT.WAVE_AMPL_DEG);
+                    const w1 = LUCKY_CAT.WAVE_SPEED;
+
+                    // 肩关节：保持在身体前方 [c-a, c+a]
+                    luckyCatArm.rotation.x = c + Math.sin(elapsedTime * w1) * a;
+
+                    // 腕关节：更快的小幅“勾手”
+                    if (typeof luckyCatWrist !== 'undefined' && luckyCatWrist) {
+                        const a2 = toRad(LUCKY_CAT.WRIST_AMPL_DEG);
+                        const w2 = LUCKY_CAT.WRIST_SPEED;
+                        luckyCatWrist.rotation.x = Math.sin(elapsedTime * w2) * a2;
+                    }
                 }
             }
 
@@ -1521,109 +1444,113 @@
         }
         
         function createLuckyCat() {
-            const catGroup = new THREE.Group();
-            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
-            const redMat = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.3, metalness: 0.1 });
-            const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1, metalness: 0.5 });
-            const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
-            const pinkMat = new THREE.MeshStandardMaterial({ color: 0xffc0cb, roughness: 0.4 });
+    const catGroup = new THREE.Group();
 
-            // Body
-            const bodyGeo = new THREE.SphereGeometry(1.5, 32, 16);
-            const body = new THREE.Mesh(bodyGeo, whiteMat);
-            body.scale.y = 0.8;
-            catGroup.add(body);
+    // --- 材质 ---
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0.1 });
+    const redMat   = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.35, metalness: 0.1 });
+    const goldMat  = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1,  metalness: 0.5 });
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+    const pinkMat  = new THREE.MeshStandardMaterial({ color: 0xffc0cb, roughness: 0.4 });
 
-            // Head
-            const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 16), whiteMat);
-            head.position.y = 1.8;
-            catGroup.add(head);
+    // --- 身体 ---
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 16), whiteMat);
+    body.scale.y = 0.8;
+    catGroup.add(body);
 
-            // Ears
-            const earGeo = new THREE.ConeGeometry(0.4, 0.8, 8);
-            const leftEar = new THREE.Mesh(earGeo, whiteMat);
-            leftEar.position.set(-0.8, 2.8, 0);
-            leftEar.rotation.z = Math.PI / 8;
-            catGroup.add(leftEar);
-            const rightEar = new THREE.Mesh(earGeo, redMat);
-            rightEar.position.set(0.8, 2.8, 0);
-            rightEar.rotation.z = -Math.PI / 8;
-            catGroup.add(rightEar);
-            
-            // Eyes
-            const eyeGeo = new THREE.SphereGeometry(0.1, 12, 8);
-            const leftEye = new THREE.Mesh(eyeGeo, blackMat);
-            leftEye.position.set(-0.4, 0.2, 1.11);
-            head.add(leftEye);
-            const rightEye = new THREE.Mesh(eyeGeo, blackMat);
-            rightEye.position.set(0.4, 0.2, 1.11);
-            head.add(rightEye);
-            
-            // Nose
-            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), blackMat);
-            nose.position.set(0, 0, 1.18);
-            nose.scale.set(1.5, 1, 1);
-            head.add(nose);
-            
-            // Whiskers
-            const lineMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 });
-            for(let i = 0; i < 3; i++) {
-                const whiskerPointsL = [ new THREE.Vector3(-0.2, -0.1, 1.15), new THREE.Vector3(-1.2, 0 - i * 0.15, 0.8) ];
-                const whiskerPointsR = [ new THREE.Vector3(0.2, -0.1, 1.15), new THREE.Vector3(1.2, 0 - i * 0.15, 0.8) ];
-                head.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(whiskerPointsL), lineMat));
-                head.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(whiskerPointsR), lineMat));
-            }
+    // --- 头部 ---
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 16), whiteMat);
+    head.position.y = 1.8;
+    catGroup.add(head);
 
-            // Collar
-            const collar = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32), redMat);
-            collar.position.y = 1.2;
-            collar.rotation.x = Math.PI / 2;
-            catGroup.add(collar);
-            
-            // Bell
-            const bell = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8), goldMat);
-            bell.position.set(0, 1.2, 1.3);
-            catGroup.add(bell);
+    // 眼睛/鼻子
+    const eyeGeo = new THREE.SphereGeometry(0.1, 12, 8);
+    const leftEye  = new THREE.Mesh(eyeGeo, blackMat); leftEye.position.set(-0.4, 0.2, 1.11); head.add(leftEye);
+    const rightEye = new THREE.Mesh(eyeGeo, blackMat); rightEye.position.set( 0.4, 0.2, 1.11); head.add(rightEye);
 
-            // Arm
-            luckyCatArm = new THREE.Object3D();
-            luckyCatArm.position.set(-1.1, 1.1, 0.2);
-            catGroup.add(luckyCatArm);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), blackMat);
+    nose.position.set(0, 0, 1.18); nose.scale.set(1.5, 1, 1); head.add(nose);
 
-            const armCurve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(0, 0, 0),
-                new THREE.Vector3(0, 0.8, -0.3),
-                new THREE.Vector3(0, 1.5, -0.1)
-            ]);
+    // 胡须
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 });
+    for (let i = 0; i < 3; i++) {
+        const whiskerL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-0.2, -0.1, 1.15), new THREE.Vector3(-1.2, -i * 0.15, 0.8)
+        ]), lineMat);
+        const whiskerR = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3( 0.2, -0.1, 1.15), new THREE.Vector3( 1.2, -i * 0.15, 0.8)
+        ]), lineMat);
+        head.add(whiskerL, whiskerR);
+    }
 
-            const armGeo = new THREE.TubeGeometry(armCurve, 20, 0.3, 8, false);
-            const arm = new THREE.Mesh(armGeo, whiteMat);
-            luckyCatArm.add(arm);
+    // --- 耳朵：白色外耳 + 粉色内耳 ---
+    const earOuterGeo = new THREE.ConeGeometry(0.4, 0.8, 12);
+    const earInnerGeo = new THREE.ConeGeometry(0.28, 0.5, 12);
 
-            // Paw
-            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), whiteMat);
-            paw.scale.set(1, 0.8, 1);
-            paw.position.copy(armCurve.points[armCurve.points.length - 1]);
-            paw.rotation.y = Math.PI; // Rotate paw to face forward
-            luckyCatArm.add(paw);
-            
-            // Paw Pads
-            const mainPad = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), pinkMat);
-            mainPad.position.set(0, -0.1, -0.3);
-            mainPad.scale.set(1.2, 1, 0.5);
-            paw.add(mainPad);
-            
-            for(let i=0; i<3; i++) {
-                const pad = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pinkMat);
-                pad.position.set(-0.2 + i * 0.2, 0.1, -0.35);
-                pad.scale.z = 0.5;
-                paw.add(pad);
-            }
+    const leftEar = new THREE.Mesh(earOuterGeo, whiteMat);
+    leftEar.position.set(-0.8, 2.8, 0.06); leftEar.rotation.z = Math.PI / 10;
+    catGroup.add(leftEar);
+    const leftInner = new THREE.Mesh(earInnerGeo, pinkMat);
+    leftInner.position.set(0, -0.05, 0.15); leftInner.rotation.x = -Math.PI / 12;
+    leftEar.add(leftInner);
 
-            return catGroup;
-        }
+    const rightEar = new THREE.Mesh(earOuterGeo, whiteMat);
+    rightEar.position.set( 0.8, 2.8, 0.06); rightEar.rotation.z = -Math.PI / 10;
+    catGroup.add(rightEar);
+    const rightInner = new THREE.Mesh(earInnerGeo, pinkMat);
+    rightInner.position.set(0, -0.05, 0.15); rightInner.rotation.x = -Math.PI / 12;
+    rightEar.add(rightInner);
 
-        function createGoalMarker(goalCoords) {
+    // --- 项圈 + 铃铛 ---
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32), redMat);
+    collar.position.y = 1.2; collar.rotation.x = Math.PI / 2; catGroup.add(collar);
+    const bell = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8), goldMat);
+    bell.position.set(0, 1.2, 1.3); catGroup.add(bell);
+
+    // --- 手臂/肩关节（左臂招手）---
+    // 关键：控制点放到 +Z（身体前方），并添加 wrist（腕关节）
+    luckyCatArm = new THREE.Object3D();
+    luckyCatArm.position.set(-1.05, 1.1, 0.35);
+    catGroup.add(luckyCatArm);
+
+    const armCurvePoints = [
+        new THREE.Vector3(0,   0.0, 0.0),
+        new THREE.Vector3(0,   0.75, 0.25),
+        new THREE.Vector3(0,   1.35, 0.40)
+    ];
+    const armCurve = new THREE.CatmullRomCurve3(armCurvePoints);
+    const arm = new THREE.Mesh(new THREE.TubeGeometry(armCurve, 20, 0.30, 8, false), whiteMat);
+    luckyCatArm.add(arm);
+
+    // 腕关节 pivot
+    luckyCatWrist = new THREE.Object3D();
+    luckyCatWrist.position.copy(armCurvePoints[armCurvePoints.length - 1]);
+    luckyCatArm.add(luckyCatWrist);
+
+    // 爪子：面向前方（+Z），爪垫在前侧
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), whiteMat);
+    paw.scale.set(1, 0.8, 1);
+    paw.position.set(0, 0, 0);
+    paw.rotation.y = 0;
+    luckyCatWrist.add(paw);
+
+    const mainPad = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), pinkMat);
+    mainPad.position.set(0, -0.1, 0.30); mainPad.scale.set(1.2, 1, 0.5); paw.add(mainPad);
+    for (let i = 0; i < 3; i++) {
+        const pad = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pinkMat);
+        pad.position.set(-0.2 + i * 0.2, 0.1, 0.35); pad.scale.z = 0.5; paw.add(pad);
+    }
+
+    // --- （可选）金币 ---
+    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 32), goldMat);
+    coin.position.set(0, 0.3, 1.0);
+    coin.rotation.x = Math.PI / 2;
+    catGroup.add(coin);
+
+    return catGroup;
+}
+
+function createGoalMarker(goalCoords) {
             const level = (currentLevelIndex === -1) ? customLevels[selectedCustomMapIndex] : levels[currentLevelIndex];
             const goalPos = gridToWorld(goalCoords.x, goalCoords.z, level.grid);
             
