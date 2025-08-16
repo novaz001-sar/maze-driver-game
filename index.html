@@ -418,9 +418,53 @@
         
         .lang-en { display: none; }
 
+        /* Intro Video Overlay */
+        .intro-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            opacity: 1;
+            transition: opacity .5s ease;
+        }
+        .intro-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #intro-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #skip-intro-btn {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 999px;
+            font-size: 16px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, .15);
+            color: #fff;
+            backdrop-filter: blur(6px);
+            cursor: pointer;
+        }
+        #skip-intro-btn:hover {
+            background: rgba(255, 255, 255, .3);
+        }
     </style>
 </head>
 <body>
+    <!-- Intro video overlay -->
+    <div id="intro-overlay" class="intro-overlay" aria-label="开场视频" role="dialog" aria-modal="true">
+        <video id="intro-video" src="intro.mp4" autoplay muted playsinline webkit-playsinline preload="auto"></video>
+        <button id="skip-intro-btn" aria-label="跳过视频">跳过</button>
+    </div>
 
     <div id="game-container"></div>
 
@@ -2354,6 +2398,41 @@ function createGoalMarker(goalCoords) {
         // ====================================================================
         init();
 
+    </script>
+    <script>
+    (function(){
+      var overlay = document.getElementById('intro-overlay');
+      var video   = document.getElementById('intro-video');
+      var skip    = document.getElementById('skip-intro-btn');
+      var startup = document.getElementById('startup-modal');
+      function ensureStartVisible() {
+        if (startup && startup.style.display === 'none') {
+          startup.style.display = 'flex';
+        }
+      }
+      function endIntro(){
+        if (!overlay) return;
+        overlay.classList.add('hidden');
+        setTimeout(function(){ overlay.remove(); ensureStartVisible(); }, 520);
+      }
+      if (skip) skip.addEventListener('click', endIntro);
+      if (video){
+        video.addEventListener('ended', endIntro);
+        video.addEventListener('error', endIntro);
+        var p = video.play && video.play();
+        if (p && typeof p.then === 'function'){
+          p.catch(function(){ video.controls = true; });
+        }
+      }
+      if (overlay){
+        overlay.addEventListener('click', function once(){
+          if (video){
+            try{ video.muted = false; video.volume = 0.6; } catch(e){}
+          }
+          overlay.removeEventListener('click', once);
+        });
+      }
+    })();
     </script>
 </body>
 </html>
