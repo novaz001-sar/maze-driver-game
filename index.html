@@ -681,7 +681,7 @@ let scene, camera, renderer, clock;
         let hemisphereLight, dirLight;
         
         let customLevels = [];
-        let luckyCatArm, luckyCatWrist;
+let luckyCatArm, luckyCatWrist, floatingHeart;
 
         let currentLanguage = 'zh';
 
@@ -1333,6 +1333,14 @@ let scene, camera, renderer, clock;
                     }
                 }
             }
+            // Animate floating heart
+            if (typeof floatingHeart !== 'undefined' && floatingHeart) {
+                const t = elapsedTime * 1.5;
+                floatingHeart.position.y = floatingHeart.userData.baseY + Math.sin(t) * 0.18;
+                const s = 1.0 + Math.sin(t * 2.0) * 0.06;
+                floatingHeart.scale.set(s, s, s);
+                floatingHeart.rotation.y += delta * 0.6;
+            }
 
             if (gameState === 'TURNING') {
                 let angleDiff = targetRotation.y - player.rotation.y;
@@ -1585,11 +1593,6 @@ let scene, camera, renderer, clock;
         pad.position.set(-0.2 + i * 0.2, 0.1, 0.35); pad.scale.z = 0.5; paw.add(pad);
     }
 
-    // --- （可选）金币 ---
-    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 32), goldMat);
-    coin.position.set(0, 0.3, 1.0);
-    coin.rotation.x = Math.PI / 2;
-    catGroup.add(coin);
 
     return catGroup;
 }
@@ -1604,73 +1607,100 @@ function createGoalMarker(goalCoords) {
             cat.scale.set(1.5, 1.5, 1.5);
             goalMarker.add(cat);
             
+            // Floating heart above the cat (higher than ears)
+            const heartShape = new THREE.Shape();
+            const x = 0, y = 0, s = 0.6;
+            heartShape.moveTo( x + 0.5*s, y + 0.5*s );
+            heartShape.bezierCurveTo( x + 0.5*s, y + 0.5*s, x + 0.4*s, y + 0.0*s, x + 0.0*s, y + 0.0*s );
+            heartShape.bezierCurveTo( x - 0.6*s, y + 0.0*s, x - 0.6*s, y + 0.7*s, x - 0.6*s, y + 0.7*s );
+            heartShape.bezierCurveTo( x - 0.6*s, y + 1.1*s, x - 0.3*s, y + 1.54*s, x + 0.5*s, y + 1.9*s );
+            heartShape.bezierCurveTo( x + 1.2*s, y + 1.54*s, x + 1.6*s, y + 1.1*s, x + 1.6*s, y + 0.7*s );
+            heartShape.bezierCurveTo( x + 1.6*s, y + 0.7*s, x + 1.6*s, y + 0.0*s, x + 1.0*s, y + 0.0*s );
+            heartShape.bezierCurveTo( x + 0.7*s, y + 0.0*s, x + 0.5*s, y + 0.5*s, x + 0.5*s, y + 0.5*s );
+            const extrudeSettings = { depth: 0.25, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.08, bevelThickness: 0.08 };
+            const heartGeo = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+            const heartMat = new THREE.MeshBasicMaterial({ color: 0xff4d6d, depthTest: false });
+            const heart = new THREE.Mesh(heartGeo, heartMat);
+            heart.position.set(0, 6.2, 0.2);
+            heart.rotation.x = Math.PI;
+            heart.scale.set(0.9, 0.9, 0.9);
+            heart.renderOrder = 999;
+            goalMarker.add(heart);
+            floatingHeart = heart;
+            floatingHeart.userData.baseY = heart.position.y;
+
             goalMarker.position.copy(goalPos);
             goalMarker.position.y = WALL_HEIGHT/2 - 1.5;
             scene.add(goalMarker);
         }
         
         function createDirectionalHelpers() {
+            // Clear previous helpers
             while (landmarksGroup.children.length > 0) {
                 landmarksGroup.remove(landmarksGroup.children[0]);
             }
-
             const level = (currentLevelIndex === -1) ? customLevels[selectedCustomMapIndex] : levels[currentLevelIndex];
+            if (!level) return;
             const gridPos = worldToGrid(player.position);
 
+            // Build arrow geometry (flat chevron)
             const arrowShape = new THREE.Shape();
-            const w = 0.4;
-            const h = 0.6;
-            arrowShape.moveTo(0, h / 2);
-            arrowShape.lineTo(w / 2, 0);
-            arrowShape.lineTo(w / 4, 0);
-            arrowShape.lineTo(w / 4, -h / 2);
-            arrowShape.lineTo(-w / 4, -h / 2);
-            arrowShape.lineTo(-w / 4, 0);
-            arrowShape.lineTo(-w / 2, 0);
+            const w = 0.50;
+            const h = 0.72;
+            arrowShape.moveTo(0,  h/2);
+            arrowShape.lineTo(w/2, 0);
+            arrowShape.lineTo(w/4, 0);
+            arrowShape.lineTo(w/4, -h/2);
+            arrowShape.lineTo(-w/4, -h/2);
+            arrowShape.lineTo(-w/4, 0);
+            arrowShape.lineTo(-w/2, 0);
             arrowShape.closePath();
             const arrowGeo = new THREE.ShapeGeometry(arrowShape);
 
+            // Opaque, always-on-top yellow
             const arrowMat = new THREE.MeshBasicMaterial({
                 color: 0xffc107,
-                transparent: true,
-                opacity: 0.6,
-                side: THREE.DoubleSide
+                side: THREE.DoubleSide,
+                depthTest: false,
+                depthWrite: false
             });
-
-            // Check FORWARD
-            const forwardVector = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
-            let nextX = gridPos.x + Math.round(forwardVector.x);
-            let nextZ = gridPos.z + Math.round(forwardVector.z);
-            if (nextZ >= 0 && nextZ < level.grid.length && nextX >= 0 && nextX < level.grid[0].length && level.grid[nextZ][nextX] === 1) {
-                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-                arrow.position.set(0, 0, -4);
-                landmarksGroup.add(arrow);
+            // Quantize yaw to the nearest right angle to avoid rounding drift
+            function quantizeYaw(y) {
+                return Math.round(y / (Math.PI / 2)) * (Math.PI / 2);
             }
-
-            // Check LEFT
-            const leftRotation = player.rotation.clone();
-            leftRotation.y += Math.PI / 2;
-            const leftVector = new THREE.Vector3(0, 0, -1).applyEuler(leftRotation);
-            nextX = gridPos.x + Math.round(leftVector.x);
-            nextZ = gridPos.z + Math.round(leftVector.z);
-            if (nextZ >= 0 && nextZ < level.grid.length && nextX >= 0 && nextX < level.grid[0].length && level.grid[nextZ][nextX] === 1) {
-                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-                arrow.position.set(-1.5, 0, -4);
-                arrow.rotation.z = Math.PI / 2;
-                landmarksGroup.add(arrow);
+            const baseYaw = quantizeYaw(player.rotation.y);
+            // Helper to compute grid step for a yaw
+            function stepFromYaw(yaw) {
+                const dirVec = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, yaw, 0));
+                const sx = Math.round(dirVec.x);
+                const sz = Math.round(dirVec.z);
+                return { sx, sz };
             }
-
-            // Check RIGHT
-            const rightRotation = player.rotation.clone();
-            rightRotation.y -= Math.PI / 2;
-            const rightVector = new THREE.Vector3(0, 0, -1).applyEuler(rightRotation);
-            nextX = gridPos.x + Math.round(rightVector.x);
-            nextZ = gridPos.z + Math.round(rightVector.z);
-            if (nextZ >= 0 && nextZ < level.grid.length && nextX >= 0 && nextX < level.grid[0].length && level.grid[nextZ][nextX] === 1) {
-                const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-                arrow.position.set(1.5, 0, -4);
-                arrow.rotation.z = -Math.PI / 2;
-                landmarksGroup.add(arrow);
+            // Helper to check path cell
+            function isPath(x, z) {
+                return (
+                    z >= 0 && z < level.grid.length &&
+                    x >= 0 && x < level.grid[0].length &&
+                    level.grid[z][x] === 1
+                );
+            }
+            // Direction descriptors relative to camera/view
+            const dirs = [
+                {name:'forward', yaw: baseYaw,             pos: new THREE.Vector3( 0.0, 0.0, -4.0), rotZ:  0.0},
+                {name:'left',    yaw: baseYaw + Math.PI/2, pos: new THREE.Vector3(-1.6, 0.0, -4.0), rotZ:  Math.PI/2},
+                {name:'right',   yaw: baseYaw - Math.PI/2, pos: new THREE.Vector3( 1.6, 0.0, -4.0), rotZ: -Math.PI/2}
+            ];
+            for (const d of dirs) {
+                const { sx, sz } = stepFromYaw(d.yaw);
+                const nx = gridPos.x + sx;
+                const nz = gridPos.z + sz;
+                // 显示规则：只要下一格是“路”(不会撞墙)就必须标注
+                if (isPath(nx, nz)) {
+                    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+                    arrow.position.copy(d.pos);
+                    arrow.rotation.z = d.rotZ;
+                    landmarksGroup.add(arrow);
+                }
             }
         }
         
@@ -1684,15 +1714,16 @@ function createGoalMarker(goalCoords) {
             const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.08, 16, 60), wheelMat);
             wheelGroup.add(wheel);
             
-            // Cute Gloves
-            const createGlove = () => {
+            // Gloves with per-hand thumb placement (axis-symmetric)
+            const createGlove = (hand = 'left') => {
                 const gloveGroup = new THREE.Group();
                 const palm = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), gloveMat);
                 palm.scale.set(1, 1.2, 1);
                 gloveGroup.add(palm);
                 
                 const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), gloveMat);
-                thumb.position.set(-0.15, 0.1, 0);
+                const thumbX = (hand === 'left') ? +0.15 : -0.15;
+                thumb.position.set(thumbX, 0.1, 0);
                 gloveGroup.add(thumb);
                 
                 const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.2, 16), cuffMat);
@@ -1702,12 +1733,12 @@ function createGoalMarker(goalCoords) {
                 return gloveGroup;
             };
 
-            const leftHand = createGlove();
+            const leftHand = createGlove('left');
             leftHand.position.set(-0.45, 0.1, 0);
             leftHand.rotation.z = 0.5;
             wheelGroup.add(leftHand);
 
-            const rightHand = createGlove();
+            const rightHand = createGlove('right');
             rightHand.position.set(0.45, 0.1, 0);
             rightHand.rotation.z = -0.5;
             wheelGroup.add(rightHand);
