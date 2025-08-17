@@ -6,22 +6,21 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.0 动画微调版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.2 功能增强版 ##
     ============================================================================
 
-    这是一款面向中老年用户的、极简交互的第一人称3D迷宫驾驶游戏。
-    v7.0 版本根据用户反馈，微调了终点招财猫模型的动画效果。
+    这是根据用户请求修改的版本，主要增加了菜单和游戏内的辅助说明文字。
 
-    ### v7.0 更新内容 (What's New in v7.0)
-    1.  **微调招财猫动画 (Adjusted Lucky Cat Animation)**:
-        * 将招财猫手臂向前挥动的最大幅度从90度调整为60度，使其摇摆动作更加自然、含蓄，并确保动作完全在身体前方。
-    2.  **保留所有核心功能**:
-        * 保留了修复后的HUD箭头逻辑、方向盘、手部模型等所有沉浸式视觉元素。
-        * 保留了所有游戏模式（通关、自由、自定义、编辑器）和导航模式（小地图/自主导航）。
+    ### v7.2 更新内容 (What's New in v7.2)
+    1.  **菜单动画说明 (Animated Menu Descriptions)**:
+        * 在主菜单和导航模式选择菜单中，当鼠标悬停在选项按钮上时，会显示该选项的动画文字说明，帮助玩家理解不同模式的玩法。
+    2.  **游戏内辅助文字增强 (Enhanced In-Game Helper Text)**:
+        * **撞墙提示**: 当玩家试图前进但前方是墙壁时，会明确提示玩家需要调转方向。
+        * **路口选择提示**: 在交叉路口，辅助文字会根据实际可行的方向（前、左、右）动态生成，并提示对应的操作按键（空格、A、D）。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
-        * 在迷宫的任何一格，车辆都会停下。此时可以观察前方浮动的箭头来决定方向。
+        * 在迷宫的任何一格，车辆都会停下。此时可以观察前方浮动的黄色箭头来决定方向。
     2.  **选择方向或前进**:
         * 按下 `D` 键，车辆会**平滑地向右转90度**。
         * 按下 `A` 键，车辆会**平滑地向左转90度**。
@@ -134,6 +133,7 @@
             font-weight: bold;
             display: none; /* Initially hidden */
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 90%;
         }
 
         #minimap-container {
@@ -457,6 +457,33 @@
         #skip-intro-btn:hover {
             background: rgba(255, 255, 255, .3);
         }
+
+        /* NEW: Animated Info Box for Menus */
+        .menu-info-box {
+            margin-top: 20px;
+            padding: 15px;
+            min-height: 80px;
+            width: 85%;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            font-size: var(--font-size-normal);
+            text-align: left;
+            overflow: hidden;
+            white-space: normal;
+        }
+
+        .menu-info-box p {
+            margin: 0;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -511,6 +538,8 @@
             <button id="free-mode-btn" data-lang-zh="自由模式" data-lang-en="Free Mode">自由模式</button>
             <button id="custom-mode-btn" data-lang-zh="自定义模式" data-lang-en="Custom Mode" disabled>自定义模式</button>
             <button id="editor-mode-btn" data-lang-zh="地图编辑器" data-lang-en="Map Editor">地图编辑器</button>
+            <!-- NEW: Info box for main menu -->
+            <div id="main-menu-info-box" class="menu-info-box"></div>
         </div>
     </div>
     
@@ -607,6 +636,8 @@
             <h2 data-lang-zh="选择导航模式" data-lang-en="Select Navigation Mode">选择导航模式</h2>
             <button id="mode-select-minimap-btn" data-lang-zh="小地图导航" data-lang-en="Minimap Navigation">小地图导航</button>
             <button id="mode-select-challenge-btn" data-lang-zh="自主导航" data-lang-en="Autonomous Navigation">自主导航</button>
+            <!-- NEW: Info box for navigation mode -->
+            <div id="nav-mode-info-box" class="menu-info-box"></div>
         </div>
     </div>
     
@@ -684,6 +715,7 @@ let scene, camera, renderer, clock;
 let luckyCatArm, luckyCatWrist, floatingHeart;
 
         let currentLanguage = 'zh';
+        let promptTimeout; // NEW: Timeout for temporary messages
 
         // ====================================================================
         // 语言翻译数据 (Language Translation Data)
@@ -717,7 +749,17 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 editor_unsolvable: "地图无解！请确保起点和终点连通。",
                 map_slot: "地图槽",
                 empty_slot: "空槽位",
-                confirm_delete: "您确定要删除这张地图吗？"
+                confirm_delete: "您确定要删除这张地图吗？",
+                // NEW: Menu descriptions
+                desc_campaign: "挑战一系列精心设计的关卡，从易到难，解锁全部地图并成为驾驶大师。",
+                desc_free: "自由选择任何已解锁的关卡进行练习，没有步数和成绩的压力。",
+                desc_custom: "游玩、编辑或删除您在地图编辑器中创作的地图。",
+                desc_editor: "发挥你的创造力！设计、建造并保存属于你自己的迷宫地图。",
+                desc_minimap: "屏幕上会始终显示一个小地图，帮助您轻松定位和规划路线。",
+                desc_challenge: "挑战模式！地图不会一直显示，您只有有限的几次查看地图的机会。",
+                // NEW: In-game prompts
+                prompt_wall: "前方是墙壁，请选择其他方向。",
+                prompt_options: (options) => `可选方向: ${options.join(' | ')}`
             },
             en: {
                 welcome: (nickname) => `Hello, ${nickname}!`,
@@ -747,7 +789,17 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 editor_unsolvable: "Map is unsolvable! Make sure the start and goal are connected.",
                 map_slot: "Map Slot",
                 empty_slot: "Empty Slot",
-                confirm_delete: "Are you sure you want to delete this map?"
+                confirm_delete: "Are you sure you want to delete this map?",
+                // NEW: Menu descriptions
+                desc_campaign: "Challenge a series of designed levels, from easy to hard, unlock all maps and become a master driver.",
+                desc_free: "Freely select any unlocked level for practice without the pressure of steps and scores.",
+                desc_custom: "Play, edit, or delete the maps you've created in the map editor.",
+                desc_editor: "Unleash your creativity! Design, build, and save your own maze maps.",
+                desc_minimap: "A small map will always be displayed on the screen to help you easily locate and plan your route.",
+                desc_challenge: "Challenge mode! The map is not always visible, and you have limited chances to view it.",
+                // NEW: In-game prompts
+                prompt_wall: "There is a wall ahead, please choose another direction.",
+                prompt_options: (options) => `Available moves: ${options.join(' | ')}`
             }
         };
 
@@ -913,6 +965,28 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 gameState = 'MAIN_MENU';
             });
 
+            // NEW: Setup for animated menu descriptions
+            const setupMenuInfo = (buttonId, infoBoxId, descriptionKey) => {
+                const button = document.getElementById(buttonId);
+                const infoBox = document.getElementById(infoBoxId);
+                if (button && infoBox) {
+                    button.addEventListener('mouseover', () => {
+                        infoBox.innerHTML = `<p>${translations[currentLanguage][descriptionKey]}</p>`;
+                    });
+                    button.addEventListener('mouseout', () => {
+                        infoBox.innerHTML = '';
+                    });
+                }
+            };
+
+            setupMenuInfo('campaign-mode-btn', 'main-menu-info-box', 'desc_campaign');
+            setupMenuInfo('free-mode-btn', 'main-menu-info-box', 'desc_free');
+            setupMenuInfo('custom-mode-btn', 'main-menu-info-box', 'desc_custom');
+            setupMenuInfo('editor-mode-btn', 'main-menu-info-box', 'desc_editor');
+            setupMenuInfo('mode-select-minimap-btn', 'nav-mode-info-box', 'desc_minimap');
+            setupMenuInfo('mode-select-challenge-btn', 'nav-mode-info-box', 'desc_challenge');
+
+
             document.getElementById('campaign-mode-btn').addEventListener('click', () => {
                 gameMode = 'campaign';
                 document.getElementById('main-menu-modal').style.display = 'none';
@@ -1055,6 +1129,10 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             document.getElementById('main-menu-modal').style.display = 'flex';
             document.getElementById('custom-mode-btn').disabled = !customLevels.some(level => level !== null);
 
+            // Clear info boxes when showing main menu
+            document.getElementById('main-menu-info-box').innerHTML = '';
+            document.getElementById('nav-mode-info-box').innerHTML = '';
+
             while(mazeGroup.children.length > 0){ mazeGroup.remove(mazeGroup.children[0]); }
             while(landmarksGroup.children.length > 0){ landmarksGroup.remove(landmarksGroup.children[0]); }
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
@@ -1169,8 +1247,8 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 return;
             }
             
-            createDirectionalHelpers();
-            updateChoicePrompt();
+            const availableTurns = createDirectionalHelpers();
+            updateChoicePrompt(availableTurns);
             gameState = 'AT_INTERSECTION';
         }
 
@@ -1195,7 +1273,23 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             shake();
         }
         
-        function updateChoicePrompt() {
+        // NEW: Function to show a temporary message in the prompt box
+        function showTemporaryMessage(message, duration = 2000) {
+            const prompt = document.getElementById('choice-prompt');
+            prompt.textContent = message;
+            prompt.style.display = 'inline-block';
+
+            clearTimeout(promptTimeout); // Clear any existing timeout
+            promptTimeout = setTimeout(() => {
+                // Only hide if the game is still at an intersection, otherwise checkForTurns will handle it
+                if (gameState === 'AT_INTERSECTION') {
+                    checkForTurns(); // Re-show the correct prompt
+                }
+            }, duration);
+        }
+
+        // MODIFIED: This function now takes available turns to build a dynamic prompt
+        function updateChoicePrompt(availableTurns) {
             const prompt = document.getElementById('choice-prompt');
             const helperToggle = document.getElementById('helper-text-toggle').value;
             const lang = translations[currentLanguage];
@@ -1206,7 +1300,18 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             }
             
             prompt.style.display = 'inline-block';
-            prompt.innerHTML = `<span style="font-size: 0.8em;">${lang.helperText}</span>`;
+            
+            const options = [];
+            if (availableTurns.forward) options.push(`${lang.forward} [空格]`);
+            if (availableTurns.left) options.push(`${lang.turnLeft} [A]`);
+            if (availableTurns.right) options.push(`${lang.turnRight} [D]`);
+
+            if (options.length > 0) {
+                prompt.textContent = lang.prompt_options(options);
+            } else {
+                // This case should ideally not happen in a solvable maze, but as a fallback:
+                prompt.textContent = lang.turnAround;
+            }
         }
 
         function setupMove() {
@@ -1218,6 +1323,8 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
 
             if (nextGridZ < 0 || nextGridZ >= level.grid.length || nextGridX < 0 || nextGridX >= level.grid[0].length || level.grid[nextGridZ][nextGridX] === 0) {
                 cameraShake();
+                // NEW: Show wall prompt
+                showTemporaryMessage(translations[currentLanguage].prompt_wall);
             } else {
                 playerChoices++;
                 document.getElementById('choice-prompt').style.display = 'none';
@@ -1634,16 +1741,18 @@ function createGoalMarker(goalCoords) {
             scene.add(goalMarker);
         }
         
+        // MODIFIED: This function now returns an object with available directions
         function createDirectionalHelpers() {
             // Clear previous helpers
             while (landmarksGroup.children.length > 0) {
                 landmarksGroup.remove(landmarksGroup.children[0]);
             }
             const level = (currentLevelIndex === -1) ? customLevels[selectedCustomMapIndex] : levels[currentLevelIndex];
-            if (!level) return;
+            if (!level) return { forward: false, left: false, right: false };
             const gridPos = worldToGrid(player.position);
 
-            // Build arrow geometry (flat chevron)
+            const available = { forward: false, left: false, right: false };
+
             const arrowShape = new THREE.Shape();
             const w = 0.50;
             const h = 0.72;
@@ -1657,51 +1766,46 @@ function createGoalMarker(goalCoords) {
             arrowShape.closePath();
             const arrowGeo = new THREE.ShapeGeometry(arrowShape);
 
-            // Opaque, always-on-top yellow
             const arrowMat = new THREE.MeshBasicMaterial({
                 color: 0xffc107,
                 side: THREE.DoubleSide,
                 depthTest: false,
                 depthWrite: false
             });
-            // Quantize yaw to the nearest right angle to avoid rounding drift
+            
             function quantizeYaw(y) {
                 return Math.round(y / (Math.PI / 2)) * (Math.PI / 2);
             }
             const baseYaw = quantizeYaw(player.rotation.y);
-            // Helper to compute grid step for a yaw
+            
             function stepFromYaw(yaw) {
                 const dirVec = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, yaw, 0));
-                const sx = Math.round(dirVec.x);
-                const sz = Math.round(dirVec.z);
-                return { sx, sz };
+                return { sx: Math.round(dirVec.x), sz: Math.round(dirVec.z) };
             }
-            // Helper to check path cell
+            
             function isPath(x, z) {
-                return (
-                    z >= 0 && z < level.grid.length &&
-                    x >= 0 && x < level.grid[0].length &&
-                    level.grid[z][x] === 1
-                );
+                return z >= 0 && z < level.grid.length && x >= 0 && x < level.grid[0].length && level.grid[z][x] === 1;
             }
-            // Direction descriptors relative to camera/view
+            
             const dirs = [
                 {name:'forward', yaw: baseYaw,             pos: new THREE.Vector3( 0.0, 0.0, -4.0), rotZ:  0.0},
                 {name:'left',    yaw: baseYaw + Math.PI/2, pos: new THREE.Vector3(-1.6, 0.0, -4.0), rotZ:  Math.PI/2},
                 {name:'right',   yaw: baseYaw - Math.PI/2, pos: new THREE.Vector3( 1.6, 0.0, -4.0), rotZ: -Math.PI/2}
             ];
+            
             for (const d of dirs) {
                 const { sx, sz } = stepFromYaw(d.yaw);
                 const nx = gridPos.x + sx;
                 const nz = gridPos.z + sz;
-                // 显示规则：只要下一格是“路”(不会撞墙)就必须标注
                 if (isPath(nx, nz)) {
+                    available[d.name] = true; // Mark this direction as available
                     const arrow = new THREE.Mesh(arrowGeo, arrowMat);
                     arrow.position.copy(d.pos);
                     arrow.rotation.z = d.rotZ;
                     landmarksGroup.add(arrow);
                 }
             }
+            return available;
         }
         
         function createSteeringWheel() {
@@ -1885,8 +1989,6 @@ function createGoalMarker(goalCoords) {
         let lastPlayerGridPos = { x: -1, z: -1 };
 
         function drawMinimapBackground(grid, start, goal) {
-            const gridWidth = grid[0].length;
-            const gridHeight = grid.length;
             const canvas = minimap;
             canvas.width = 500;
             canvas.height = 500;
@@ -1894,11 +1996,11 @@ function createGoalMarker(goalCoords) {
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            const cellWidth = canvas.width / gridWidth;
-            const cellHeight = canvas.height / gridHeight;
+            const cellWidth = canvas.width / grid[0].length;
+            const cellHeight = canvas.height / grid.length;
 
-            for (let z = 0; z < gridHeight; z++) {
-                for (let x = 0; x < gridWidth; x++) {
+            for (let z = 0; z < grid.length; z++) {
+                for (let x = 0; x < grid[0].length; x++) {
                     const xPos = x * cellWidth;
                     const yPos = z * cellHeight;
                     
@@ -2060,7 +2162,7 @@ function createGoalMarker(goalCoords) {
                 welcomeMsg.textContent = translations[currentLanguage].welcome(playerInfo.nickname);
             }
             if (gameState === 'AT_INTERSECTION') {
-                updateChoicePrompt();
+                checkForTurns();
             }
             if (document.getElementById('dev-panel').style.display === 'block') {
                 setupDevPanel();
