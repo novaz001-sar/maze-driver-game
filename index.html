@@ -563,6 +563,10 @@
         }
 
 
+
+        .legend-icon{width:24px;height:24px;margin-right:12px;display:inline-block;vertical-align:middle;}
+        .legend-icon path{vector-effect:non-scaling-stroke;}
+
         @media (max-width: 800px) {
             .big-map-flex-container {
                 flex-direction: column;
@@ -738,7 +742,18 @@
                 <h3 id="map-instructions-title" data-lang-zh="地图说明" data-lang-en="Map Instructions">地图说明</h3>
                 <ul>
                     <li>
-                        <span class="map-legend-swatch swatch-player"></span>
+                        
+<svg class="legend-icon" viewBox="0 0 24 24" aria-label="您的位置箭头">
+    <defs>
+        <radialGradient id="legendPlayerGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ff8080"/>
+            <stop offset="100%" stop-color="#c00000"/>
+        </radialGradient>
+    </defs>
+    <path d="M4 12 L16 4 L16 9 L21 9 L21 15 L16 15 L16 20 Z"
+          fill="url(#legendPlayerGrad)" stroke="#006400" stroke-width="2" stroke-linejoin="round"/>
+</svg>
+
                         <span data-lang-zh="您的位置 (红色箭头)" data-lang-en="Your Position (Red Arrow)">您的位置 (红色箭头)</span>
                     </li>
                     <li>
@@ -932,7 +947,60 @@
         // ====================================================================
         // 关卡数据 (Level Data)
         // ====================================================================
-        const MAZE_DATA = [
+// ===== New: 5 easier intro levels (7x7 .. 11x11), each has ≥2 branches & ≥1 dead end =====
+const INTRO_MAZES = [
+    // Intro 1 (7x7)
+    [[1,1,1,1,1,1,1],
+     [1,0,0,0,1,'E',1],
+     [1,0,1,0,1,0,1],
+     [1,0,1,0,0,0,1],
+     [1,0,1,1,1,0,1],
+     [1,'S',0,0,1,0,1],
+     [1,1,1,1,1,1,1]],
+    // Intro 2 (8x8)
+    [[1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,0,1],
+     [1,0,1,1,1,1,0,1],
+     [1,0,1,0,0,1,0,1],
+     [1,0,1,0,0,1,0,1],
+     [1,0,0,0,1,0,0,1],
+     [1,0,1,0,1,0,'E',1],
+     [1,1,1,1,1,1,1,1]],
+    // Intro 3 (9x9)
+    [[1,1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,1,0,0,1],
+     [1,0,1,1,0,1,0,1,1],
+     [1,0,0,1,0,0,0,0,1],
+     [1,1,0,1,1,1,1,0,1],
+     [1,0,0,0,0,0,1,0,1],
+     [1,0,1,1,1,0,1,0,1],
+     [1,0,0,0,1,0,0,'E',1],
+     [1,1,1,1,1,1,1,1,1]],
+    // Intro 4 (10x10)
+    [[1,1,1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,0,1,0,1],
+     [1,0,1,1,1,1,0,1,0,1],
+     [1,0,0,0,0,1,0,0,0,1],
+     [1,1,1,1,0,1,1,1,0,1],
+     [1,0,0,1,0,0,0,1,0,1],
+     [1,0,0,1,1,1,0,1,0,1],
+     [1,0,1,0,0,0,0,1,0,1],
+     [1,0,1,0,1,1,0,'E',0,1],
+     [1,1,1,1,1,1,1,1,1,1]],
+    // Intro 5 (11x11)
+    [[1,1,1,1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,1,0,0,0,1],
+     [1,0,1,1,1,0,1,0,1,0,1],
+     [1,0,0,0,1,0,0,0,1,0,1],
+     [1,1,1,0,1,1,1,0,1,0,1],
+     [1,0,0,0,0,0,1,0,0,0,1],
+     [1,0,1,1,1,0,1,1,1,0,1],
+     [1,0,0,0,1,0,0,0,1,0,1],
+     [1,1,0,0,1,1,1,0,1,0,1],
+     [1,0,0,0,0,0,0,0,0,'E',1],
+     [1,1,1,1,1,1,1,1,1,1,1]]
+];
+        const MAZE_DATA = [...INTRO_MAZES, 
             // Level 1 (15x15)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'E',1,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1],[1,0,0,0,1,0,1,0,1,0,1,0,0,'S',1],[1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,1,0,1,0,1,0,1],[1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             // Level 2 (15x15)
@@ -1253,6 +1321,8 @@
             select.addEventListener('change', (e) => {
                 loadLevel(parseInt(e.target.value));
             });
+            // 让下拉保持与当前关卡同步
+            select.value = String(currentLevelIndex);
         }
         
         function showMainMenu() {
@@ -1315,6 +1385,11 @@
             targetRotation.y = player.rotation.y;
 
             const pathInfo = findShortestPath(level);
+            // 同步开发者面板选择状态（自由模式）
+            const dev = document.getElementById('level-select');
+            if (dev && getComputedStyle(document.getElementById('dev-panel')).display === 'block' && currentLevelIndex >= 0) {
+                dev.value = String(currentLevelIndex);
+            }
             if (!pathInfo) {
                 const message = `Level ${currentLevelIndex >= 0 ? currentLevelIndex + 1 : 'Custom'} is unsolvable!`;
                 alert(message);
@@ -2015,12 +2090,12 @@
         function createMaterials() {
             const textureLoader = new THREE.TextureLoader();
             wallMaterialNS = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns')),
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns').trim()),
                 roughness: 0.8,
                 metalness: 0.2
             });
             wallMaterialEW = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ew')),
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ew').trim()),
                 roughness: 0.8,
                 metalness: 0.2
             });
@@ -2038,19 +2113,11 @@
                 metalness: 0.1
             });
             landmarkMaterial = new THREE.MeshBasicMaterial({
-                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color')),
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
                 transparent: true,
                 blending: THREE.AdditiveBlending
             });
-            const goalTexture = textureLoader.load('http://googleusercontent.com/file_content/1');
-            goalTexture.wrapS = THREE.RepeatWrapping;
-            goalTexture.wrapT = THREE.RepeatWrapping;
-            goalTexture.repeat.set(1, 1);
-            goalWallMaterial = new THREE.MeshStandardMaterial({
-                map: goalTexture,
-                roughness: 0.7,
-                metalness: 0.1
-            });
+            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 0.25 });
         }
 
         // ====================================================================
@@ -2231,9 +2298,7 @@
             if (gameState === 'AT_INTERSECTION') {
                 checkForTurns();
             }
-            if (document.getElementById('dev-panel').style.display === 'block') {
-                setupDevPanel();
-            }
+            // 保留玩家当前关卡选择，不要在此处重建开发者面板以避免重置为第一关。
 
             const ingameHint = document.getElementById('ingame-hint');
             if (ingameHint.style.display !== 'none') {
