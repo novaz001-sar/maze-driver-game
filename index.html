@@ -6,17 +6,18 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.2 功能增强版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.6 详细地图说明版 ##
     ============================================================================
 
-    这是根据用户请求修改的版本，主要增加了菜单和游戏内的辅助说明文字。
+    这是根据用户请求修改的版本，在v7.5的布局基础上，恢复了大地图元素的详细说明。
 
-    ### v7.2 更新内容 (What's New in v7.2)
-    1.  **菜单动画说明 (Animated Menu Descriptions)**:
-        * 在主菜单和导航模式选择菜单中，当鼠标悬停在选项按钮上时，会显示该选项的动画文字说明，帮助玩家理解不同模式的玩法。
-    2.  **游戏内辅助文字增强 (Enhanced In-Game Helper Text)**:
-        * **撞墙提示**: 当玩家试图前进但前方是墙壁时，会明确提示玩家需要调转方向。
-        * **路口选择提示**: 在交叉路口，辅助文字会根据实际可行的方向（前、左、右）动态生成，并提示对应的操作按键（空格、A、D）。
+    ### v7.6 更新内容 (What's New in v7.6)
+    1.  **恢复大地图详细说明 (Restored Detailed Map Legend)**:
+        * 在大地图观察阶段，左侧的说明面板现在会详细列出各个地图元素的含义，包括“您的位置”、“起点”、“终点”等。
+        * 每个说明项都配有对应的颜色标识，与地图上的元素颜色一致，帮助玩家快速识别。
+        * 保留了“点击地图开始驾驶”的核心操作指令。
+    2.  **UI微调 (Minor UI Tweaks)**:
+        * 为新的地图图例添加了样式，使其清晰易读。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
@@ -101,6 +102,7 @@
             justify-content: space-between;
             align-items: flex-start;
             width: 100%;
+            position: relative; /* For positioning hints */
         }
 
         #map-view-count {
@@ -119,12 +121,16 @@
         }
 
         #bottom-hud {
-            text-align: center;
-            padding-bottom: 40px;
+           text-align: center;
+            position: absolute; 
+            bottom: 3vh;        
+            left: 0;            
+            right: 0;           
         }
 
-        #choice-prompt {
-            background-color: rgba(255, 255, 255, 0.8);
+        /* Shared style for prompts */
+        .hud-prompt {
+            background-color: rgba(255, 255, 255, 0.85);
             color: var(--text-color);
             padding: 15px 25px;
             border-radius: 15px;
@@ -134,6 +140,10 @@
             display: none; /* Initially hidden */
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             max-width: 90%;
+        }
+        
+        #big-map-prompt {
+             border-color: var(--highlight-color);
         }
 
         #minimap-container {
@@ -149,11 +159,10 @@
         }
 
         #minimap-container.big-map {
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80vmin;
-            height: 80vmin;
+            /* MODIFIED: Centering is now handled by a flex container */
+            position: relative;
+            width: 60vmin;
+            height: 60vmin;
             cursor: pointer;
         }
 
@@ -171,6 +180,21 @@
             width: 100%;
             height: 100%;
             border-radius: 8px;
+        }
+        
+        #ingame-hint {
+            position: absolute;
+            top: 80px; /* Positioned below the settings button */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: var(--font-size-normal);
+            z-index: 5;
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
         }
 
         /* Modals and Menus */
@@ -458,7 +482,7 @@
             background: rgba(255, 255, 255, .3);
         }
 
-        /* NEW: Animated Info Box for Menus */
+        /* Animated Info Box for Menus */
         .menu-info-box {
             margin-top: 20px;
             padding: 15px;
@@ -484,6 +508,81 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Big map layout styles */
+        .big-map-flex-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            width: 95vw;
+            height: 95vh;
+        }
+
+        #map-instructions-panel h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+        
+        /* NEW: Styles for the detailed map legend */
+        #map-instructions-panel ul {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        #map-instructions-panel li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 17px;
+        }
+
+        .map-legend-swatch {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            margin-right: 12px;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .swatch-player {
+            background: #c00000;
+        }
+        .swatch-start {
+            background-color: var(--start-color);
+        }
+        .swatch-goal {
+            background-color: var(--goal-color);
+        }
+        
+        #map-instructions-panel .instruction-text {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+
+        @media (max-width: 800px) {
+            .big-map-flex-container {
+                flex-direction: column;
+                gap: 15px;
+                justify-content: center;
+            }
+            #map-instructions-panel {
+                max-width: 90vw;
+                order: 2; /* Instructions below map */
+                padding: 20px;
+                font-size: 16px;
+            }
+            #big-map-container-wrapper {
+                order: 1; /* Map above instructions */
+            }
+            #minimap-container.big-map {
+                width: 80vw;
+                height: 80vw;
+            }
+        }
     </style>
 </head>
 <body>
@@ -498,9 +597,11 @@
     <div id="ui-container">
         <div id="top-hud" class="hud">
              <div id="map-view-count"></div>
+             <div id="ingame-hint" style="display: none;"></div>
         </div>
         <div id="bottom-hud" class="hud">
-            <div id="choice-prompt"></div>
+            <div id="big-map-prompt" class="hud-prompt"></div>
+            <div id="choice-prompt" class="hud-prompt"></div>
         </div>
     </div>
 
@@ -538,7 +639,6 @@
             <button id="free-mode-btn" data-lang-zh="自由模式" data-lang-en="Free Mode">自由模式</button>
             <button id="custom-mode-btn" data-lang-zh="自定义模式" data-lang-en="Custom Mode" disabled>自定义模式</button>
             <button id="editor-mode-btn" data-lang-zh="地图编辑器" data-lang-en="Map Editor">地图编辑器</button>
-            <!-- NEW: Info box for main menu -->
             <div id="main-menu-info-box" class="menu-info-box"></div>
         </div>
     </div>
@@ -631,12 +731,40 @@
         </div>
     </div>
 
+    <!-- MODIFIED: Modal for Big Map View with detailed legend -->
+    <div id="big-map-view-modal" class="modal-overlay" style="display: none;">
+        <div class="big-map-flex-container">
+            <div id="map-instructions-panel" class="modal-content" style="width: auto; max-width: 350px; text-align: left; padding: 30px;">
+                <h3 id="map-instructions-title" data-lang-zh="地图说明" data-lang-en="Map Instructions">地图说明</h3>
+                <ul>
+                    <li>
+                        <span class="map-legend-swatch swatch-player"></span>
+                        <span data-lang-zh="您的位置 (红色箭头)" data-lang-en="Your Position (Red Arrow)">您的位置 (红色箭头)</span>
+                    </li>
+                    <li>
+                        <span class="map-legend-swatch swatch-start"></span>
+                        <span data-lang-zh="起点 (蓝色方块)" data-lang-en="Start Point (Blue Square)">起点 (蓝色方块)</span>
+                    </li>
+                    <li>
+                        <span class="map-legend-swatch swatch-goal"></span>
+                        <span data-lang-zh="终点 (红色方块)" data-lang-en="Goal (Red Square)">终点 (红色方块)</span>
+                    </li>
+                </ul>
+                <p class="instruction-text" data-lang-zh="请仔细规划路线，准备好后，用鼠标左键点击大地图开始驾驶。" data-lang-en="Plan your route carefully. When ready, click the big map to start driving.">
+                    请仔细规划路线，准备好后，用鼠标左键点击大地图开始驾驶。
+                </p>
+            </div>
+            <div id="big-map-container-wrapper">
+                <!-- The minimap canvas container will be moved here by JS -->
+            </div>
+        </div>
+    </div>
+
     <div id="mode-select-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h2 data-lang-zh="选择导航模式" data-lang-en="Select Navigation Mode">选择导航模式</h2>
             <button id="mode-select-minimap-btn" data-lang-zh="小地图导航" data-lang-en="Minimap Navigation">小地图导航</button>
             <button id="mode-select-challenge-btn" data-lang-zh="自主导航" data-lang-en="Autonomous Navigation">自主导航</button>
-            <!-- NEW: Info box for navigation mode -->
             <div id="nav-mode-info-box" class="menu-info-box"></div>
         </div>
     </div>
@@ -678,21 +806,20 @@
         const TURN_SPEED = Math.PI * 2;
 
         
-// 招财猫动画参数（角度为度，速度为弧度/秒）
-const LUCKY_CAT = {
-    WAVE_CENTER_DEG: 30, // 肩关节中心前倾角
-    WAVE_AMPL_DEG: 10,   // 肩关节摆幅（±）
-    WAVE_SPEED: 5.0,     // 肩关节摆动速度（rad/s）
-    WRIST_AMPL_DEG: 8,   // 腕部小幅“勾手”摆幅（±）
-    WRIST_SPEED: 10.0    // 腕部摆动速度（rad/s）
-};
-let scene, camera, renderer, clock;
+        const LUCKY_CAT = {
+            WAVE_CENTER_DEG: 30,
+            WAVE_AMPL_DEG: 10,
+            WAVE_SPEED: 5.0,
+            WRIST_AMPL_DEG: 8,
+            WRIST_SPEED: 10.0
+        };
+        let scene, camera, renderer, clock;
         let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel;
         let minimap, minimapCtx;
         
         let gameState = 'STARTUP_MODAL';
-        let gameMode = 'campaign'; // campaign, free, custom
-        let navigationMode = 'minimap'; // minimap, limited
+        let gameMode = 'campaign';
+        let navigationMode = 'minimap';
         let currentLevelIndex = 0;
         let playerInfo = { nickname: 'Driver', gender: 'other' };
 
@@ -712,10 +839,11 @@ let scene, camera, renderer, clock;
         let hemisphereLight, dirLight;
         
         let customLevels = [];
-let luckyCatArm, luckyCatWrist, floatingHeart;
+        let luckyCatArm, luckyCatWrist, floatingHeart;
 
         let currentLanguage = 'zh';
-        let promptTimeout; // NEW: Timeout for temporary messages
+        let promptTimeout;
+        let hintTimeout;
 
         // ====================================================================
         // 语言翻译数据 (Language Translation Data)
@@ -750,16 +878,15 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 map_slot: "地图槽",
                 empty_slot: "空槽位",
                 confirm_delete: "您确定要删除这张地图吗？",
-                // NEW: Menu descriptions
                 desc_campaign: "挑战一系列精心设计的关卡，从易到难，解锁全部地图并成为驾驶大师。",
                 desc_free: "自由选择任何已解锁的关卡进行练习，没有步数和成绩的压力。",
                 desc_custom: "游玩、编辑或删除您在地图编辑器中创作的地图。",
                 desc_editor: "发挥你的创造力！设计、建造并保存属于你自己的迷宫地图。",
                 desc_minimap: "屏幕上会始终显示一个小地图，帮助您轻松定位和规划路线。",
                 desc_challenge: "挑战模式！地图不会一直显示，您只有有限的几次查看地图的机会。",
-                // NEW: In-game prompts
                 prompt_wall: "前方是墙壁，请选择其他方向。",
-                prompt_options: (options) => `可选方向: ${options.join(' | ')}`
+                prompt_options: (options) => `可选方向: ${options.join(' | ')}`,
+                hint_ingame_controls: "提示：点击左上角 ⚙️ 更改设置，按 [ESC] 可打开菜单。"
             },
             en: {
                 welcome: (nickname) => `Hello, ${nickname}!`,
@@ -790,21 +917,20 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 map_slot: "Map Slot",
                 empty_slot: "Empty Slot",
                 confirm_delete: "Are you sure you want to delete this map?",
-                // NEW: Menu descriptions
                 desc_campaign: "Challenge a series of designed levels, from easy to hard, unlock all maps and become a master driver.",
                 desc_free: "Freely select any unlocked level for practice without the pressure of steps and scores.",
                 desc_custom: "Play, edit, or delete the maps you've created in the map editor.",
                 desc_editor: "Unleash your creativity! Design, build, and save your own maze maps.",
                 desc_minimap: "A small map will always be displayed on the screen to help you easily locate and plan your route.",
                 desc_challenge: "Challenge mode! The map is not always visible, and you have limited chances to view it.",
-                // NEW: In-game prompts
                 prompt_wall: "There is a wall ahead, please choose another direction.",
-                prompt_options: (options) => `Available moves: ${options.join(' | ')}`
+                prompt_options: (options) => `Available moves: ${options.join(' | ')}`,
+                hint_ingame_controls: "Hint: Click the ⚙️ in the top-left to change settings. Press [ESC] to open the menu."
             }
         };
 
         // ====================================================================
-        // 关卡数据 (Level Data) - v5.5
+        // 关卡数据 (Level Data)
         // ====================================================================
         const MAZE_DATA = [
             // Level 1 (15x15)
@@ -817,25 +943,25 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'E',1,0,0,'S',1,0,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,1],[1,0,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,1],[1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,1,0,1,0,1,0,1],[1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1],[1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             // Level 5 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1],[1,0,1,0,0,0,0,0,0,0,1,0,1,'E',0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],[1,'S',0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 6 (17x17) - Simplified
+            // Level 6 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'S',0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,0,1,0,1,1,1,1,1,1,1,1,0,1,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1],[1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1,1,1],[1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,1],[1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,'E',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 7 (17x17) - Simplified
+            // Level 7 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,'E',1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,1,1],[1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,1,0,1,0,1,0,1],[1,0,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,1,0,1,0,1,0,1],[1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,'S',0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 8 (17x17) - Redesigned and Solvable
+            // Level 8 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'S',0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],[1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1],[1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,0,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,0,1,0,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0,1],[1,0,1,1,1,0,1,1,1,1,1,1,0,1,0,1,1],[1,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],[1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,1],[1,1,1,0,1,0,1,1,1,1,0,1,0,1,1,0,1],[1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,'E',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 9 (17x17) - Redesigned and Solvable
+            // Level 9 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'S',0,0,0,1,0,0,0,1,0,0,0,1,0,0,1],[1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1],[1,0,0,1,0,1,0,1,0,1,0,1,0,1,0,0,1],[1,0,1,1,0,1,1,1,0,1,1,1,0,1,1,0,1],[1,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0,1],[1,1,0,1,1,1,0,1,1,1,0,1,1,0,1,0,1],[1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,0,1],[1,0,1,1,1,1,1,1,0,1,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0,1],[1,1,1,1,1,1,0,1,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,'E',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 10 (17x17) - Simplified
+            // Level 10 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'S',0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1],[1,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,'E',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 11 (17x17) - Simplified
+            // Level 11 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,'S',0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,'E',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 12 (17x17) - Redesigned and Solvable
+            // Level 12 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'E',0,0,0,1,0,0,0,1,0,0,0,0,0,0,1],[1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,0,1],[1,0,0,1,0,1,0,1,0,1,0,0,0,0,1,0,1],[1,0,1,1,0,1,1,1,0,1,1,1,1,0,1,0,1],[1,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0,1],[1,1,0,1,1,1,0,1,1,1,0,1,0,1,1,0,1],[1,0,0,0,0,1,0,0,0,1,0,1,0,1,0,0,1],[1,0,1,1,1,1,0,1,'S',1,0,1,1,1,0,1,1],[1,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0,1],[1,0,1,0,1,1,1,1,0,1,1,1,0,1,1,1,1],[1,0,1,0,1,0,0,0,0,1,0,0,0,1,0,0,1],[1,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1,1],[1,0,0,0,1,0,1,0,0,0,0,1,0,0,0,0,1],[1,1,1,0,1,0,1,0,1,1,1,1,0,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 13 (17x17) - Simplified
+            // Level 13 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,'S',0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,1,1],[1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,'E',0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 14 (17x17) - Redesigned and Solvable
+            // Level 14 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'S',0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,'E',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Level 15 (17x17) - Simplified
+            // Level 15 (17x17)
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,'S',0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0,1],[1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1],[1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,'E',0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
         ];
         
@@ -851,14 +977,12 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 for (let x = 0; x < width; x++) {
                     const cell = mazeData[z][x];
                     if (cell === 'S') {
-                        start = { x, z, dir: 'S' }; // Default dir, can be changed
-                        row.push(1); // Path
+                        start = { x, z, dir: 'S' };
+                        row.push(1);
                     } else if (cell === 'E') {
                         goal = { x, z };
-                        row.push(1); // Path
+                        row.push(1);
                     } else {
-                        // In my game, 1 is path and 0 is wall.
-                        // In MAZE_DATA, 1 is wall and 0 is path. So I flip it.
                         row.push(cell === 1 ? 0 : 1);
                     }
                 }
@@ -965,7 +1089,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 gameState = 'MAIN_MENU';
             });
 
-            // NEW: Setup for animated menu descriptions
             const setupMenuInfo = (buttonId, infoBoxId, descriptionKey) => {
                 const button = document.getElementById(buttonId);
                 const infoBox = document.getElementById(infoBoxId);
@@ -1052,6 +1175,11 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
 
             document.getElementById('minimap-container').addEventListener('click', () => {
                 if (gameState === 'BIG_MAP') {
+                    const bigMapViewModal = document.getElementById('big-map-view-modal');
+                    const minimapContainer = document.getElementById('minimap-container');
+                    bigMapViewModal.style.display = 'none';
+                    document.body.appendChild(minimapContainer); 
+                    
                     const container = document.getElementById('minimap-container');
                     if (navigationMode === 'limited') {
                         container.style.display = 'none';
@@ -1061,6 +1189,9 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                     }
                     gameState = 'AT_INTERSECTION';
                     checkForTurns();
+                    
+                    showIngameHint();
+
                 } else if (gameState === 'CHALLENGE_MAP_VIEW') {
                     toggleChallengeMap();
                 }
@@ -1129,7 +1260,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             document.getElementById('main-menu-modal').style.display = 'flex';
             document.getElementById('custom-mode-btn').disabled = !customLevels.some(level => level !== null);
 
-            // Clear info boxes when showing main menu
             document.getElementById('main-menu-info-box').innerHTML = '';
             document.getElementById('nav-mode-info-box').innerHTML = '';
 
@@ -1140,6 +1270,9 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
 
             document.getElementById('minimap-container').style.display = 'none';
             document.getElementById('map-view-count').style.display = 'none';
+            document.getElementById('big-map-prompt').style.display = 'none';
+            document.getElementById('ingame-hint').style.display = 'none';
+            clearTimeout(hintTimeout);
         }
 
         // ====================================================================
@@ -1158,8 +1291,11 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                 level = levels[levelData];
             } else {
                 level = levelData;
-                currentLevelIndex = -1; // Indicates a custom level
+                currentLevelIndex = -1;
             }
+            
+            clearTimeout(hintTimeout);
+            document.getElementById('ingame-hint').style.display = 'none';
 
             playerChoices = 0;
             document.getElementById('choice-prompt').style.display = 'none';
@@ -1189,11 +1325,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             optimalChoices = pathInfo.choices;
             console.log(`Level ${currentLevelIndex >= 0 ? currentLevelIndex + 1 : 'Custom'}: Optimal Steps = ${optimalChoices}`);
             
-            const minimapContainer = document.getElementById('minimap-container');
-            minimapContainer.style.display = 'block';
-            minimapContainer.classList.remove('small-map');
-            minimapContainer.classList.add('big-map');
-            
             if (navigationMode === 'limited') {
                 mapViewChances = 3;
             }
@@ -1203,6 +1334,21 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             updateMinimapPlayer();
             
             gameState = 'BIG_MAP';
+            
+            const bigMapViewModal = document.getElementById('big-map-view-modal');
+            const bigMapWrapper = document.getElementById('big-map-container-wrapper');
+            const minimapContainer = document.getElementById('minimap-container');
+
+            bigMapWrapper.appendChild(minimapContainer);
+            minimapContainer.style.display = 'block';
+            minimapContainer.classList.remove('small-map');
+            minimapContainer.classList.add('big-map');
+            
+            // The text is now part of the HTML, so we just need to ensure it's translated
+            updateUIText();
+            
+            bigMapViewModal.style.display = 'flex';
+            document.getElementById('big-map-prompt').style.display = 'none'; 
         }
 
         function gridToWorld(x, z, grid) {
@@ -1254,7 +1400,7 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
 
         function cameraShake() {
             const shakeIntensity = 0.05;
-            let shakeDuration = 200; // ms
+            let shakeDuration = 200;
             const startTime = Date.now();
 
             function shake() {
@@ -1273,22 +1419,19 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             shake();
         }
         
-        // NEW: Function to show a temporary message in the prompt box
         function showTemporaryMessage(message, duration = 2000) {
             const prompt = document.getElementById('choice-prompt');
             prompt.textContent = message;
             prompt.style.display = 'inline-block';
 
-            clearTimeout(promptTimeout); // Clear any existing timeout
+            clearTimeout(promptTimeout);
             promptTimeout = setTimeout(() => {
-                // Only hide if the game is still at an intersection, otherwise checkForTurns will handle it
                 if (gameState === 'AT_INTERSECTION') {
-                    checkForTurns(); // Re-show the correct prompt
+                    checkForTurns();
                 }
             }, duration);
         }
 
-        // MODIFIED: This function now takes available turns to build a dynamic prompt
         function updateChoicePrompt(availableTurns) {
             const prompt = document.getElementById('choice-prompt');
             const helperToggle = document.getElementById('helper-text-toggle').value;
@@ -1309,7 +1452,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
             if (options.length > 0) {
                 prompt.textContent = lang.prompt_options(options);
             } else {
-                // This case should ideally not happen in a solvable maze, but as a fallback:
                 prompt.textContent = lang.turnAround;
             }
         }
@@ -1323,7 +1465,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
 
             if (nextGridZ < 0 || nextGridZ >= level.grid.length || nextGridX < 0 || nextGridX >= level.grid[0].length || level.grid[nextGridZ][nextGridX] === 0) {
                 cameraShake();
-                // NEW: Show wall prompt
                 showTemporaryMessage(translations[currentLanguage].prompt_wall);
             } else {
                 playerChoices++;
@@ -1381,7 +1522,7 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                     nextBtn.style.display = 'inline-block';
                 }
 
-            } else { // Free mode or Custom
+            } else {
                 document.getElementById('results-title').textContent = lang.levelComplete;
                 stats.style.display = 'none';
                 medalEl.style.display = 'none';
@@ -1429,10 +1570,8 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                     const a  = toRad(LUCKY_CAT.WAVE_AMPL_DEG);
                     const w1 = LUCKY_CAT.WAVE_SPEED;
 
-                    // 肩关节：保持在身体前方 [c-a, c+a]
                     luckyCatArm.rotation.x = c + Math.sin(elapsedTime * w1) * a;
 
-                    // 腕关节：更快的小幅“勾手”
                     if (typeof luckyCatWrist !== 'undefined' && luckyCatWrist) {
                         const a2 = toRad(LUCKY_CAT.WRIST_AMPL_DEG);
                         const w2 = LUCKY_CAT.WRIST_SPEED;
@@ -1440,7 +1579,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                     }
                 }
             }
-            // Animate floating heart
             if (typeof floatingHeart !== 'undefined' && floatingHeart) {
                 const t = elapsedTime * 1.5;
                 floatingHeart.position.y = floatingHeart.userData.baseY + Math.sin(t) * 0.18;
@@ -1562,18 +1700,16 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
 
             for (let z = 0; z < gridHeight; z++) {
                 for (let x = 0; x < gridWidth; x++) {
-                    if (grid[z][x] === 1) { // Only check from path cells
+                    if (grid[z][x] === 1) {
                         const worldPos = gridToWorld(x, z, grid);
                         const isNearGoal = Math.abs(x - goal.x) <= 1 && Math.abs(z - goal.z) <= 1 && !(x === goal.x && z === goal.z);
 
-                        // Check North
                         if (z > 0 && grid[z - 1][x] === 0) {
                              const material = isNearGoal && z - 1 === goal.z ? goalWallMaterial : wallMaterialNS;
                              const wall = new THREE.Mesh(wallGeo, material);
                              wall.position.set(worldPos.x, WALL_HEIGHT / 2, worldPos.z - TILE_SIZE / 2);
                              mazeGroup.add(wall);
                         }
-                        // Check South
                         if (z < gridHeight - 1 && grid[z + 1][x] === 0) {
                              const material = isNearGoal && z + 1 === goal.z ? goalWallMaterial : wallMaterialNS;
                              const wall = new THREE.Mesh(wallGeo, material);
@@ -1581,7 +1717,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                              wall.rotation.y = Math.PI;
                              mazeGroup.add(wall);
                         }
-                        // Check West
                         if (x > 0 && grid[z][x - 1] === 0) {
                              const material = isNearGoal && x - 1 === goal.x ? goalWallMaterial : wallMaterialEW;
                              const wall = new THREE.Mesh(wallGeo, material);
@@ -1589,7 +1724,6 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
                              wall.rotation.y = Math.PI / 2;
                              mazeGroup.add(wall);
                         }
-                        // Check East
                         if (x < gridWidth - 1 && grid[z][x + 1] === 0) {
                              const material = isNearGoal && x + 1 === goal.x ? goalWallMaterial : wallMaterialEW;
                              const wall = new THREE.Mesh(wallGeo, material);
@@ -1603,118 +1737,86 @@ let luckyCatArm, luckyCatWrist, floatingHeart;
         }
         
         function createLuckyCat() {
-    const catGroup = new THREE.Group();
+            const catGroup = new THREE.Group();
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0.1 });
+            const redMat   = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.35, metalness: 0.1 });
+            const goldMat  = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1,  metalness: 0.5 });
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+            const pinkMat  = new THREE.MeshStandardMaterial({ color: 0xffc0cb, roughness: 0.4 });
+            const body = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 16), whiteMat);
+            body.scale.y = 0.8;
+            catGroup.add(body);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 16), whiteMat);
+            head.position.y = 1.8;
+            catGroup.add(head);
+            const eyeGeo = new THREE.SphereGeometry(0.1, 12, 8);
+            const leftEye  = new THREE.Mesh(eyeGeo, blackMat); leftEye.position.set(-0.4, 0.2, 1.11); head.add(leftEye);
+            const rightEye = new THREE.Mesh(eyeGeo, blackMat); rightEye.position.set( 0.4, 0.2, 1.11); head.add(rightEye);
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), blackMat);
+            nose.position.set(0, 0, 1.18); nose.scale.set(1.5, 1, 1); head.add(nose);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 });
+            for (let i = 0; i < 3; i++) {
+                const whiskerL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-0.2, -0.1, 1.15), new THREE.Vector3(-1.2, -i * 0.15, 0.8)
+                ]), lineMat);
+                const whiskerR = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3( 0.2, -0.1, 1.15), new THREE.Vector3( 1.2, -i * 0.15, 0.8)
+                ]), lineMat);
+                head.add(whiskerL, whiskerR);
+            }
+            const earOuterGeo = new THREE.ConeGeometry(0.4, 0.8, 12);
+            const earInnerGeo = new THREE.ConeGeometry(0.28, 0.5, 12);
+            const leftEar = new THREE.Mesh(earOuterGeo, whiteMat);
+            leftEar.position.set(-0.8, 2.8, 0.06); leftEar.rotation.z = Math.PI / 10;
+            catGroup.add(leftEar);
+            const leftInner = new THREE.Mesh(earInnerGeo, pinkMat);
+            leftInner.position.set(0, -0.05, 0.15); leftInner.rotation.x = -Math.PI / 12;
+            leftEar.add(leftInner);
+            const rightEar = new THREE.Mesh(earOuterGeo, whiteMat);
+            rightEar.position.set( 0.8, 2.8, 0.06); rightEar.rotation.z = -Math.PI / 10;
+            catGroup.add(rightEar);
+            const rightInner = new THREE.Mesh(earInnerGeo, pinkMat);
+            rightInner.position.set(0, -0.05, 0.15); rightInner.rotation.x = -Math.PI / 12;
+            rightEar.add(rightInner);
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32), redMat);
+            collar.position.y = 1.2; collar.rotation.x = Math.PI / 2; catGroup.add(collar);
+            const bell = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8), goldMat);
+            bell.position.set(0, 1.2, 1.3); catGroup.add(bell);
+            luckyCatArm = new THREE.Object3D();
+            luckyCatArm.position.set(-1.05, 1.1, 0.35);
+            catGroup.add(luckyCatArm);
+            const armCurvePoints = [
+                new THREE.Vector3(0,   0.0, 0.0),
+                new THREE.Vector3(0,   0.75, 0.25),
+                new THREE.Vector3(0,   1.35, 0.40)
+            ];
+            const armCurve = new THREE.CatmullRomCurve3(armCurvePoints);
+            const arm = new THREE.Mesh(new THREE.TubeGeometry(armCurve, 20, 0.30, 8, false), whiteMat);
+            luckyCatArm.add(arm);
+            luckyCatWrist = new THREE.Object3D();
+            luckyCatWrist.position.copy(armCurvePoints[armCurvePoints.length - 1]);
+            luckyCatArm.add(luckyCatWrist);
+            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), whiteMat);
+            paw.scale.set(1, 0.8, 1);
+            paw.position.set(0, 0, 0);
+            paw.rotation.y = 0;
+            luckyCatWrist.add(paw);
+            const mainPad = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), pinkMat);
+            mainPad.position.set(0, -0.1, 0.30); mainPad.scale.set(1.2, 1, 0.5); paw.add(mainPad);
+            for (let i = 0; i < 3; i++) {
+                const pad = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pinkMat);
+                pad.position.set(-0.2 + i * 0.2, 0.1, 0.35); pad.scale.z = 0.5; paw.add(pad);
+            }
+            return catGroup;
+        }
 
-    // --- 材质 ---
-    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0.1 });
-    const redMat   = new THREE.MeshStandardMaterial({ color: 0xaa2222, roughness: 0.35, metalness: 0.1 });
-    const goldMat  = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.1,  metalness: 0.5 });
-    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
-    const pinkMat  = new THREE.MeshStandardMaterial({ color: 0xffc0cb, roughness: 0.4 });
-
-    // --- 身体 ---
-    const body = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 16), whiteMat);
-    body.scale.y = 0.8;
-    catGroup.add(body);
-
-    // --- 头部 ---
-    const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 16), whiteMat);
-    head.position.y = 1.8;
-    catGroup.add(head);
-
-    // 眼睛/鼻子
-    const eyeGeo = new THREE.SphereGeometry(0.1, 12, 8);
-    const leftEye  = new THREE.Mesh(eyeGeo, blackMat); leftEye.position.set(-0.4, 0.2, 1.11); head.add(leftEye);
-    const rightEye = new THREE.Mesh(eyeGeo, blackMat); rightEye.position.set( 0.4, 0.2, 1.11); head.add(rightEye);
-
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), blackMat);
-    nose.position.set(0, 0, 1.18); nose.scale.set(1.5, 1, 1); head.add(nose);
-
-    // 胡须
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 });
-    for (let i = 0; i < 3; i++) {
-        const whiskerL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(-0.2, -0.1, 1.15), new THREE.Vector3(-1.2, -i * 0.15, 0.8)
-        ]), lineMat);
-        const whiskerR = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3( 0.2, -0.1, 1.15), new THREE.Vector3( 1.2, -i * 0.15, 0.8)
-        ]), lineMat);
-        head.add(whiskerL, whiskerR);
-    }
-
-    // --- 耳朵：白色外耳 + 粉色内耳 ---
-    const earOuterGeo = new THREE.ConeGeometry(0.4, 0.8, 12);
-    const earInnerGeo = new THREE.ConeGeometry(0.28, 0.5, 12);
-
-    const leftEar = new THREE.Mesh(earOuterGeo, whiteMat);
-    leftEar.position.set(-0.8, 2.8, 0.06); leftEar.rotation.z = Math.PI / 10;
-    catGroup.add(leftEar);
-    const leftInner = new THREE.Mesh(earInnerGeo, pinkMat);
-    leftInner.position.set(0, -0.05, 0.15); leftInner.rotation.x = -Math.PI / 12;
-    leftEar.add(leftInner);
-
-    const rightEar = new THREE.Mesh(earOuterGeo, whiteMat);
-    rightEar.position.set( 0.8, 2.8, 0.06); rightEar.rotation.z = -Math.PI / 10;
-    catGroup.add(rightEar);
-    const rightInner = new THREE.Mesh(earInnerGeo, pinkMat);
-    rightInner.position.set(0, -0.05, 0.15); rightInner.rotation.x = -Math.PI / 12;
-    rightEar.add(rightInner);
-
-    // --- 项圈 + 铃铛 ---
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32), redMat);
-    collar.position.y = 1.2; collar.rotation.x = Math.PI / 2; catGroup.add(collar);
-    const bell = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8), goldMat);
-    bell.position.set(0, 1.2, 1.3); catGroup.add(bell);
-
-    // --- 手臂/肩关节（左臂招手）---
-    // 关键：控制点放到 +Z（身体前方），并添加 wrist（腕关节）
-    luckyCatArm = new THREE.Object3D();
-    luckyCatArm.position.set(-1.05, 1.1, 0.35);
-    catGroup.add(luckyCatArm);
-
-    const armCurvePoints = [
-        new THREE.Vector3(0,   0.0, 0.0),
-        new THREE.Vector3(0,   0.75, 0.25),
-        new THREE.Vector3(0,   1.35, 0.40)
-    ];
-    const armCurve = new THREE.CatmullRomCurve3(armCurvePoints);
-    const arm = new THREE.Mesh(new THREE.TubeGeometry(armCurve, 20, 0.30, 8, false), whiteMat);
-    luckyCatArm.add(arm);
-
-    // 腕关节 pivot
-    luckyCatWrist = new THREE.Object3D();
-    luckyCatWrist.position.copy(armCurvePoints[armCurvePoints.length - 1]);
-    luckyCatArm.add(luckyCatWrist);
-
-    // 爪子：面向前方（+Z），爪垫在前侧
-    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), whiteMat);
-    paw.scale.set(1, 0.8, 1);
-    paw.position.set(0, 0, 0);
-    paw.rotation.y = 0;
-    luckyCatWrist.add(paw);
-
-    const mainPad = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), pinkMat);
-    mainPad.position.set(0, -0.1, 0.30); mainPad.scale.set(1.2, 1, 0.5); paw.add(mainPad);
-    for (let i = 0; i < 3; i++) {
-        const pad = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pinkMat);
-        pad.position.set(-0.2 + i * 0.2, 0.1, 0.35); pad.scale.z = 0.5; paw.add(pad);
-    }
-
-
-    return catGroup;
-}
-
-function createGoalMarker(goalCoords) {
+        function createGoalMarker(goalCoords) {
             const level = (currentLevelIndex === -1) ? customLevels[selectedCustomMapIndex] : levels[currentLevelIndex];
             const goalPos = gridToWorld(goalCoords.x, goalCoords.z, level.grid);
-            
             goalMarker = new THREE.Group();
-            
             const cat = createLuckyCat();
             cat.scale.set(1.5, 1.5, 1.5);
             goalMarker.add(cat);
-            
-            // Floating heart above the cat (higher than ears)
             const heartShape = new THREE.Shape();
             const x = 0, y = 0, s = 0.6;
             heartShape.moveTo( x + 0.5*s, y + 0.5*s );
@@ -1735,15 +1837,12 @@ function createGoalMarker(goalCoords) {
             goalMarker.add(heart);
             floatingHeart = heart;
             floatingHeart.userData.baseY = heart.position.y;
-
             goalMarker.position.copy(goalPos);
             goalMarker.position.y = WALL_HEIGHT/2 - 1.5;
             scene.add(goalMarker);
         }
         
-        // MODIFIED: This function now returns an object with available directions
         function createDirectionalHelpers() {
-            // Clear previous helpers
             while (landmarksGroup.children.length > 0) {
                 landmarksGroup.remove(landmarksGroup.children[0]);
             }
@@ -1798,7 +1897,7 @@ function createGoalMarker(goalCoords) {
                 const nx = gridPos.x + sx;
                 const nz = gridPos.z + sz;
                 if (isPath(nx, nz)) {
-                    available[d.name] = true; // Mark this direction as available
+                    available[d.name] = true;
                     const arrow = new THREE.Mesh(arrowGeo, arrowMat);
                     arrow.position.copy(d.pos);
                     arrow.rotation.z = d.rotZ;
@@ -1813,65 +1912,50 @@ function createGoalMarker(goalCoords) {
             const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0.1 });
             const gloveMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
             const cuffMat = new THREE.MeshStandardMaterial({ color: 0xcc0000, roughness: 0.6 });
-
-            // Wheel
             const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.08, 16, 60), wheelMat);
             wheelGroup.add(wheel);
-            
-            // Gloves with per-hand thumb placement (axis-symmetric)
             const createGlove = (hand = 'left') => {
                 const gloveGroup = new THREE.Group();
                 const palm = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), gloveMat);
                 palm.scale.set(1, 1.2, 1);
                 gloveGroup.add(palm);
-                
                 const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), gloveMat);
                 const thumbX = (hand === 'left') ? +0.15 : -0.15;
                 thumb.position.set(thumbX, 0.1, 0);
                 gloveGroup.add(thumb);
-                
                 const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.2, 16), cuffMat);
                 cuff.position.y = -0.15;
                 gloveGroup.add(cuff);
-                
                 return gloveGroup;
             };
-
             const leftHand = createGlove('left');
             leftHand.position.set(-0.45, 0.1, 0);
             leftHand.rotation.z = 0.5;
             wheelGroup.add(leftHand);
-
             const rightHand = createGlove('right');
             rightHand.position.set(0.45, 0.1, 0);
             rightHand.rotation.z = -0.5;
             wheelGroup.add(rightHand);
-
             wheelGroup.position.set(0, -1.2, -2);
             wheelGroup.rotation.x = -0.5;
-            
             return wheelGroup;
         }
         
         function createClassicalLamp() {
             const group = new THREE.Group();
             const postMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6, metalness: 0.4 });
-
             const baseGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.2, 8);
             const base = new THREE.Mesh(baseGeo, postMat);
             base.position.y = 0.1;
             group.add(base);
-            
             const postGeo = new THREE.CylinderGeometry(0.15, 0.1, 3.5, 8);
             const post = new THREE.Mesh(postGeo, postMat);
             post.position.y = 1.85;
             group.add(post);
-
             const holderGeo = new THREE.BoxGeometry(0.2, 0.2, 0.8);
             const holder = new THREE.Mesh(holderGeo, postMat);
             holder.position.set(0, 3.6, 0.3);
             group.add(holder);
-
             const lanternGeo = new THREE.SphereGeometry(0.4, 8, 6);
             const lightColors = [0xfffee0, 0xffffff, 0xe0e0ff, 0xffe0e0, 0xffd54f];
             const randomColor = lightColors[Math.floor(Math.random() * lightColors.length)];
@@ -1879,25 +1963,20 @@ function createGoalMarker(goalCoords) {
             const bulb = new THREE.Mesh(lanternGeo, bulbMat);
             bulb.position.set(0, 3.6, 0.3);
             group.add(bulb);
-
             const light = new THREE.PointLight(randomColor, 0, TILE_SIZE * 2, 1.5);
             light.name = 'lampLight';
             light.position.copy(bulb.position);
             group.add(light);
-            
             return group;
         }
 
         function placeRoadsideObjects(grid) {
             const gridHeight = grid.length;
             const gridWidth = grid[0].length;
-
             for (let z = 0; z < gridHeight; z++) {
                 for (let x = 0; x < gridWidth; x++) {
                     if (grid[z][x] === 0) continue;
-
                     const worldPos = gridToWorld(x, z, grid);
-
                     if (z > 0 && grid[z - 1][x] === 0) {
                         if (x % 3 === 0) {
                             const lamp = createClassicalLamp();
@@ -1935,42 +2014,34 @@ function createGoalMarker(goalCoords) {
 
         function createMaterials() {
             const textureLoader = new THREE.TextureLoader();
-
             wallMaterialNS = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns')),
                 roughness: 0.8,
                 metalness: 0.2
             });
-
             wallMaterialEW = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ew')),
                 roughness: 0.8,
                 metalness: 0.2
             });
-            
             const floorTexture = textureLoader.load('https://threejs.org/examples/textures/checker.png');
             floorTexture.wrapS = THREE.RepeatWrapping;
             floorTexture.wrapT = THREE.RepeatWrapping;
-            
             floorTexture.magFilter = THREE.NearestFilter;
             floorTexture.minFilter = THREE.NearestFilter;
-
             const repeatsPerMazeTile = 2;
             const largestMazeDim = 25;
             floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
-
             floorMaterial = new THREE.MeshStandardMaterial({
                 map: floorTexture,
                 roughness: 0.8,
                 metalness: 0.1
             });
-
             landmarkMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color')),
                 transparent: true,
                 blending: THREE.AdditiveBlending
             });
-            
             const goalTexture = textureLoader.load('http://googleusercontent.com/file_content/1');
             goalTexture.wrapS = THREE.RepeatWrapping;
             goalTexture.wrapT = THREE.RepeatWrapping;
@@ -1993,24 +2064,20 @@ function createGoalMarker(goalCoords) {
             canvas.width = 500;
             canvas.height = 500;
             const ctx = minimapCtx;
-            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             const cellWidth = canvas.width / grid[0].length;
             const cellHeight = canvas.height / grid.length;
-
             for (let z = 0; z < grid.length; z++) {
                 for (let x = 0; x < grid[0].length; x++) {
                     const xPos = x * cellWidth;
                     const yPos = z * cellHeight;
-                    
-                    if (grid[z][x] === 0) { // Wall
+                    if (grid[z][x] === 0) {
                         const wallGradient = ctx.createLinearGradient(xPos, yPos, xPos + cellWidth, yPos + cellHeight);
                         wallGradient.addColorStop(0, "#555");
                         wallGradient.addColorStop(0.5, "#222");
                         wallGradient.addColorStop(1, "#555");
                         ctx.fillStyle = wallGradient;
-                    } else { // Path
+                    } else {
                         const pathGradient = ctx.createLinearGradient(xPos, yPos, xPos + cellWidth, yPos + cellHeight);
                         pathGradient.addColorStop(0, "#eee");
                         pathGradient.addColorStop(0.5, "#fff");
@@ -2020,10 +2087,8 @@ function createGoalMarker(goalCoords) {
                     ctx.fillRect(xPos, yPos, cellWidth, cellHeight);
                 }
             }
-
             ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--start-color');
             ctx.fillRect(start.x * cellWidth, start.z * cellHeight, cellWidth, cellHeight);
-            
             ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--goal-color');
             ctx.fillRect(goal.x * cellWidth, goal.z * cellHeight, cellWidth, cellHeight);
         }
@@ -2033,20 +2098,15 @@ function createGoalMarker(goalCoords) {
             if (!level) return;
             const { grid, start, goal } = level;
             const gridPos = worldToGrid(player.position);
-            
             lastPlayerGridPos = { ...gridPos };
-
             drawMinimapBackground(grid, start, goal);
-
             const ctx = minimapCtx;
             const gridWidth = grid[0].length;
             const gridHeight = grid.length;
             const cellWidth = ctx.canvas.width / gridWidth;
             const cellHeight = ctx.canvas.height / gridHeight;
-
             const playerX = (gridPos.x + 0.5) * cellWidth;
             const playerZ = (gridPos.z + 0.5) * cellHeight;
-
             ctx.save();
             const dirVec = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
             const angle = Math.atan2(dirVec.z, dirVec.x);
@@ -2055,31 +2115,26 @@ function createGoalMarker(goalCoords) {
             const size = Math.min(cellWidth, cellHeight) * 1.2; 
             const half = size * 0.5;
             const tail = -half * 0.8; 
-            
             ctx.beginPath();
             ctx.moveTo(half, 0);
             ctx.lineTo(tail, -half * 0.6); 
             ctx.lineTo(tail,  half * 0.6); 
             ctx.closePath();
-            
             const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, half);
             gradient.addColorStop(0, '#ff8080');
             gradient.addColorStop(1, '#c00000');
-            
             ctx.fillStyle = gradient;
             ctx.shadowColor = 'rgba(255, 0, 0, 0.9)';
             ctx.shadowBlur = size * 0.7;
-
             ctx.fill();
-            
             ctx.lineWidth = Math.max(2, size * 0.1); 
-            ctx.strokeStyle = '#006400'; // Dark Green
+            ctx.strokeStyle = '#006400';
             ctx.stroke();
             ctx.restore();
         }
 
         // ====================================================================
-        // 寻路算法 (Pathfinding - BFS) for step counting
+        // 寻路算法 (Pathfinding - BFS)
         // ====================================================================
 
         function getNeighbors(x, z, grid) {
@@ -2100,14 +2155,11 @@ function createGoalMarker(goalCoords) {
             if (!start.hasOwnProperty('x') || !goal.hasOwnProperty('x')) return null;
             const queue = [{ x: start.x, z: start.z, path: [] }];
             const visited = new Set([`${start.x},${start.z}`]);
-
             while (queue.length > 0) {
                 const { x, z, path } = queue.shift();
-
                 if (x === goal.x && z === goal.z) {
                     return { path, choices: path.length };
                 }
-
                 const neighbors = getNeighbors(x, z, grid);
                 for (const neighbor of neighbors) {
                     const key = `${neighbor.x},${neighbor.z}`;
@@ -2125,6 +2177,21 @@ function createGoalMarker(goalCoords) {
         // 菜单与UI逻辑 (Menu & UI Logic)
         // ====================================================================
         
+        function showIngameHint() {
+            const hintEl = document.getElementById('ingame-hint');
+            hintEl.textContent = translations[currentLanguage].hint_ingame_controls;
+            hintEl.style.display = 'block';
+            hintEl.style.opacity = 1;
+
+            clearTimeout(hintTimeout);
+            hintTimeout = setTimeout(() => {
+                hintEl.style.opacity = 0;
+                setTimeout(() => {
+                    hintEl.style.display = 'none';
+                }, 500); // Match CSS transition duration
+            }, 16000); // Show hint for 6 seconds
+        }
+
         function updateHUD() {
             const mapViewCountEl = document.getElementById('map-view-count');
             if (navigationMode === 'limited') {
@@ -2167,6 +2234,11 @@ function createGoalMarker(goalCoords) {
             if (document.getElementById('dev-panel').style.display === 'block') {
                 setupDevPanel();
             }
+
+            const ingameHint = document.getElementById('ingame-hint');
+            if (ingameHint.style.display !== 'none') {
+                ingameHint.textContent = translations[currentLanguage].hint_ingame_controls;
+            }
             updateHUD();
         }
 
@@ -2190,11 +2262,9 @@ function createGoalMarker(goalCoords) {
             const isMapViewVisible = container.style.display === 'block' && gameState === 'CHALLENGE_MAP_VIEW';
 
             if (isMapViewVisible) {
-                // Hide map
                 container.style.display = 'none';
                 gameState = previousGameState;
             } else if (['AT_INTERSECTION', 'DRIVING', 'TURNING'].includes(gameState) && mapViewChances > 0) {
-                // Show map
                 mapViewChances--;
                 updateHUD();
                 previousGameState = gameState;
@@ -2202,16 +2272,14 @@ function createGoalMarker(goalCoords) {
                 container.classList.remove('small-map');
                 container.classList.add('big-map');
                 container.style.display = 'block';
-                renderer.render(scene, camera); // Render one frame of the map
+                renderer.render(scene, camera);
             }
         }
 
         function showLevelSelectModal() {
             const grid = document.getElementById('level-select-grid');
             grid.innerHTML = '';
-            
             const levelCount = (gameMode === 'custom') ? customLevels.filter(l=>l).length : levels.length;
-            
             for (let i = 0; i < levelCount; i++) {
                 const button = document.createElement('button');
                 button.textContent = i + 1;
@@ -2226,7 +2294,6 @@ function createGoalMarker(goalCoords) {
                 }
                 grid.appendChild(button);
             }
-
             document.getElementById('pause-menu-modal').style.display = 'none';
             document.getElementById('level-select-modal').style.display = 'flex';
         }
@@ -2235,14 +2302,12 @@ function createGoalMarker(goalCoords) {
             unlockedLevel = 0;
             playerInfo = { nickname: 'Driver', gender: 'other' };
             document.getElementById('nickname-input').value = '';
-            
             const modals = document.querySelectorAll('.modal-overlay');
             modals.forEach(modal => {
                 if (modal.id !== 'startup-modal') {
                     modal.style.display = 'none';
                 }
             });
-            
             document.getElementById('startup-modal').style.display = 'flex';
             gameState = 'STARTUP_MODAL';
             updateUIText();
@@ -2286,7 +2351,6 @@ function createGoalMarker(goalCoords) {
             const slotSelect = document.getElementById('editor-slot-select');
             grid.innerHTML = '';
             slotSelect.innerHTML = '';
-            
             for (let i = 0; i < MAX_CUSTOM_LEVELS; i++) {
                 const option = document.createElement('option');
                 option.value = i;
@@ -2294,21 +2358,17 @@ function createGoalMarker(goalCoords) {
                 slotSelect.appendChild(option);
             }
             slotSelect.value = slotIndex;
-            
             slotSelect.onchange = () => {
                 initEditor(parseInt(slotSelect.value));
             };
-
             loadEditorGrid(slotIndex);
-            
             grid.onmousedown = (e) => {
                 isDrawing = true;
                 handleGridInteraction(e);
             };
             grid.onmouseover = handleGridInteraction;
             document.onmouseup = () => isDrawing = false;
-            grid.onmouseleave = () => isDrawing = false; // Stop drawing if mouse leaves grid
-
+            grid.onmouseleave = () => isDrawing = false;
             document.getElementById('editor-toolbar').onclick = (e) => {
                 if (e.target.tagName === 'BUTTON') {
                     currentTool = e.target.dataset.tool;
@@ -2316,7 +2376,6 @@ function createGoalMarker(goalCoords) {
                     e.target.classList.add('selected');
                 }
             };
-            
             document.getElementById('tool-wall').classList.add('selected');
             document.getElementById('editor-save-btn').onclick = saveCustomMap;
             document.getElementById('editor-delete-btn').onclick = deleteCustomMap;
@@ -2332,32 +2391,27 @@ function createGoalMarker(goalCoords) {
             editorGridData = [];
             editorStart = {};
             editorGoal = {};
-            
             const levelToLoad = customLevels[slotIndex];
-
             for (let z = 0; z < EDITOR_SIZE; z++) {
                 const row = [];
                 for (let x = 0; x < EDITOR_SIZE; x++) {
-                    let cellType = 0; // 0 for path
+                    let cellType = 0;
                     if (levelToLoad) {
-                        cellType = levelToLoad.grid[z][x] === 0 ? 1 : 0; // Convert back: 0->wall, 1->path
+                        cellType = levelToLoad.grid[z][x] === 0 ? 1 : 0;
                         if (levelToLoad.start.x === x && levelToLoad.start.z === z) editorStart = {x, z};
                         if (levelToLoad.goal.x === x && levelToLoad.goal.z === z) editorGoal = {x, z};
                     } else {
                         const isBorder = x === 0 || x === EDITOR_SIZE - 1 || z === 0 || z === EDITOR_SIZE - 1;
-                        if (isBorder) cellType = 1; // 1 for wall
+                        if (isBorder) cellType = 1;
                     }
-                    
                     row.push(cellType);
                     const cell = document.createElement('div');
                     cell.classList.add('editor-cell');
                     cell.dataset.x = x;
                     cell.dataset.z = z;
-                    
                     if(editorStart.x === x && editorStart.z === z) cell.classList.add('start');
                     else if(editorGoal.x === x && editorGoal.z === z) cell.classList.add('goal');
                     else cell.classList.toggle('wall', cellType === 1);
-                    
                     grid.appendChild(cell);
                 }
                 editorGridData.push(row);
@@ -2366,19 +2420,13 @@ function createGoalMarker(goalCoords) {
         
         function handleGridInteraction(e) {
             if (!isDrawing || e.buttons !== 1) return;
-            
             const cell = e.target;
             if (!cell.classList.contains('editor-cell')) return;
-            
             const x = parseInt(cell.dataset.x);
             const z = parseInt(cell.dataset.z);
             const grid = document.getElementById('editor-grid');
-
-            // Clear previous start/goal if they exist on this cell
             if (editorStart.x === x && editorStart.z === z) editorStart = {};
             if (editorGoal.x === x && editorGoal.z === z) editorGoal = {};
-            
-            // Clear old visual if placing a new start/goal
             if (currentTool === 'start' && editorStart.x !== undefined) {
                  grid.children[editorStart.z * EDITOR_SIZE + editorStart.x].className = 'editor-cell path';
                  editorGridData[editorStart.z][editorStart.x] = 0;
@@ -2387,7 +2435,6 @@ function createGoalMarker(goalCoords) {
                  grid.children[editorGoal.z * EDITOR_SIZE + editorGoal.x].className = 'editor-cell path';
                  editorGridData[editorGoal.z][editorGoal.x] = 0;
             }
-
             switch (currentTool) {
                 case 'wall':
                     editorGridData[z][x] = 1;
@@ -2398,16 +2445,16 @@ function createGoalMarker(goalCoords) {
                     cell.className = 'editor-cell path';
                     break;
                 case 'start':
-                    editorGridData[z][x] = 0; // Start must be on a path
+                    editorGridData[z][x] = 0;
                     editorStart = { x, z };
                     cell.className = 'editor-cell start';
-                    isDrawing = false; // only place one at a time
+                    isDrawing = false;
                     break;
                 case 'goal':
-                    editorGridData[z][x] = 0; // Goal must be on a path
+                    editorGridData[z][x] = 0;
                     editorGoal = { x, z };
                     cell.className = 'editor-cell goal';
-                    isDrawing = false; // only place one at a time
+                    isDrawing = false;
                     break;
             }
         }
@@ -2416,7 +2463,6 @@ function createGoalMarker(goalCoords) {
             const messageEl = document.getElementById('editor-message');
             messageEl.textContent = '';
             const slotIndex = parseInt(document.getElementById('editor-slot-select').value);
-
             if (!editorStart.hasOwnProperty('x')) {
                 messageEl.textContent = translations[currentLanguage].editor_need_start;
                 return;
@@ -2425,34 +2471,25 @@ function createGoalMarker(goalCoords) {
                 messageEl.textContent = translations[currentLanguage].editor_need_goal;
                 return;
             }
-
             const mazeDataForSolver = editorGridData.map(row => row.map(cell => cell === 1 ? 0 : 1));
-
             const tempLevel = { grid: mazeDataForSolver, start: editorStart, goal: editorGoal };
-
             if (!findShortestPath(tempLevel)) {
                 messageEl.textContent = translations[currentLanguage].editor_unsolvable;
                 return;
             }
-            
             const newLevel = {
                 grid: mazeDataForSolver,
-                start: { ...editorStart, dir: 'S' }, // Default dir
+                start: { ...editorStart, dir: 'S' },
                 goal: { ...editorGoal }
             };
-            
             if (newLevel.start.x === 0) newLevel.start.dir = 'E';
             else if (newLevel.start.x === EDITOR_SIZE - 1) newLevel.start.dir = 'W';
             else if (newLevel.start.z === 0) newLevel.start.dir = 'S';
             else if (newLevel.start.z === EDITOR_SIZE - 1) newLevel.start.dir = 'N';
-
             customLevels[slotIndex] = newLevel;
             saveCustomLevels();
-            
-            // Update dropdown text
             const option = document.getElementById('editor-slot-select').options[slotIndex];
             option.textContent = `${translations[currentLanguage].map_slot} ${slotIndex + 1}`;
-            
             messageEl.textContent = `${translations[currentLanguage].map_slot} ${slotIndex + 1} 已保存!`;
             messageEl.style.color = 'green';
             setTimeout(() => {
@@ -2466,7 +2503,7 @@ function createGoalMarker(goalCoords) {
             if (customLevels[slotIndex] && confirm(translations[currentLanguage].confirm_delete)) {
                 customLevels[slotIndex] = null;
                 saveCustomLevels();
-                initEditor(slotIndex); // Reload editor for this slot
+                initEditor(slotIndex);
             }
         }
         
@@ -2476,11 +2513,9 @@ function createGoalMarker(goalCoords) {
             const grid = document.getElementById('custom-maps-grid');
             grid.innerHTML = '';
             selectedCustomMapIndex = -1;
-            
             document.getElementById('custom-play-btn').disabled = true;
             document.getElementById('custom-edit-btn').disabled = true;
             document.getElementById('custom-delete-btn').disabled = true;
-
             for (let i = 0; i < MAX_CUSTOM_LEVELS; i++) {
                 const button = document.createElement('button');
                 button.dataset.index = i;
@@ -2492,7 +2527,6 @@ function createGoalMarker(goalCoords) {
                 }
                 grid.appendChild(button);
             }
-            
             grid.onclick = (e) => {
                 if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
                     document.querySelectorAll('#custom-maps-grid button').forEach(b => b.classList.remove('selected'));
@@ -2503,7 +2537,6 @@ function createGoalMarker(goalCoords) {
                     document.getElementById('custom-delete-btn').disabled = false;
                 }
             };
-            
             document.getElementById('custom-play-btn').onclick = () => {
                 if(selectedCustomMapIndex !== -1) {
                     document.getElementById('custom-maps-modal').style.display = 'none';
@@ -2517,7 +2550,7 @@ function createGoalMarker(goalCoords) {
                 if(selectedCustomMapIndex !== -1 && confirm(translations[currentLanguage].confirm_delete)) {
                     customLevels[selectedCustomMapIndex] = null;
                     saveCustomLevels();
-                    showCustomMapsModal(); // Refresh
+                    showCustomMapsModal();
                 }
             };
             document.getElementById('custom-back-btn').onclick = () => {
