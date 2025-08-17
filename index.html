@@ -824,9 +824,9 @@
         const LUCKY_CAT = {
             WAVE_CENTER_DEG: 30,
             WAVE_AMPL_DEG: 10,
-            WAVE_SPEED: 5.0,
+            WAVE_SPEED: 15.0,
             WRIST_AMPL_DEG: 8,
-            WRIST_SPEED: 10.0
+            WRIST_SPEED: 30.0
         };
         let scene, camera, renderer, clock;
         let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel;
@@ -1072,22 +1072,31 @@ const INTRO_MAZES = [
         function init() {
             scene = new THREE.Scene();
             const loader = new THREE.CubeTextureLoader();
-            const texture = loader.load([
-                'https://threejs.org/examples/textures/cube/skyboxsun25deg/px.jpg',
-                'https://threejs.org/examples/textures/cube/skyboxsun25deg/nx.jpg',
-                'https://threejs.org/examples/textures/cube/skyboxsun25deg/py.jpg',
-                'https://threejs.org/examples/textures/cube/skyboxsun25deg/ny.jpg',
-                'https://threejs.org/examples/textures/cube/skyboxsun25deg/pz.jpg',
-                'https://threejs.org/examples/textures/cube/skyboxsun25deg/nz.jpg',
-            ]);
-            scene.background = texture;
-            scene.fog = new THREE.Fog(0xcccccc, TILE_SIZE * 5, TILE_SIZE * 20);
+loader.setCrossOrigin('anonymous');
+// 默认先用实色天空作为兜底，防止纹理加载失败时画面发灰
+scene.background = new THREE.Color(0x87ceeb);
+loader.load([
+    'https://threejs.org/examples/textures/cube/skyboxsun25deg/px.jpg',
+    'https://threejs.org/examples/textures/cube/skyboxsun25deg/nx.jpg',
+    'https://threejs.org/examples/textures/cube/skyboxsun25deg/py.jpg',
+    'https://threejs.org/examples/textures/cube/skyboxsun25deg/ny.jpg',
+    'https://threejs.org/examples/textures/cube/skyboxsun25deg/pz.jpg',
+    'https://threejs.org/examples/textures/cube/skyboxsun25deg/nz.jpg',
+], (tex) => {
+    scene.background = tex;
+}, undefined, (err) => {
+    console.warn('Skybox load failed:', err);
+    // 保持颜色背景作为回退
+});
+            scene.fog = new THREE.Fog(0x87ceeb, TILE_SIZE * 7, TILE_SIZE * 28);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.getElementById('game-container').appendChild(renderer.domElement);
+            // 让清屏色与雾色一致，避免背景发灰
+            renderer.setClearColor(scene.fog.color, 1);
             clock = new THREE.Clock();
 
             hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
@@ -1618,13 +1627,24 @@ const INTRO_MAZES = [
             const elapsedTime = clock.getElapsedTime();
             
             const dayNightCycle = (Math.sin(elapsedTime * 0.1) + 1) / 2;
+            {
+                const skyDay = new THREE.Color(0x87ceeb);
+                const skyNight = new THREE.Color(0x0b1736);
+                const fogColor = skyNight.clone().lerp(skyDay, dayNightCycle);
+                if (scene.fog) scene.fog.color.copy(fogColor);
+            }
             const nightIntensity = Math.max(0, 1 - dayNightCycle * 4);
             
-            if (scene.background.isCubeTexture) {
+            if (scene.background && scene.background.isCubeTexture) {
                 hemisphereLight.intensity = dayNightCycle * 1.5 + 0.2;
                 dirLight.intensity = dayNightCycle * 2.0 + 0.2;
             } else {
-                scene.background.setHSL(0.6, 0.7, dayNightCycle * 0.4 + 0.3);
+                const skyDay = new THREE.Color(0x87ceeb);
+                const skyNight = new THREE.Color(0x0b1736);
+                const fogColor = skyNight.clone().lerp(skyDay, dayNightCycle);
+                if (scene.fog) scene.fog.color.copy(fogColor);
+                renderer.setClearColor(fogColor, 1);
+                scene.background = fogColor;
                 hemisphereLight.intensity = dayNightCycle * 2.5 + 0.5;
             }
             
@@ -1638,7 +1658,7 @@ const INTRO_MAZES = [
 
             if (goalMarker) {
                 goalMarker.position.y = WALL_HEIGHT/2 - 1.5 + Math.sin(elapsedTime) * 0.2;
-                goalMarker.rotation.y += delta * 0.2;
+                goalMarker.rotation.y += delta * 0.4;
                 if (luckyCatArm) {
                     const toRad = THREE.MathUtils.degToRad;
                     const c  = toRad(LUCKY_CAT.WAVE_CENTER_DEG);
