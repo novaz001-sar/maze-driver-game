@@ -2269,8 +2269,8 @@ function __makeTileTextures(size = 512, stripe = 6) {
 
     // base: reddish-brown metal with a subtle radial gradient
     const grad = ctx.createRadialGradient(size*0.5, size*0.5, size*0.15, size*0.5, size*0.5, size*0.7);
-    grad.addColorStop(0, '#7a2b24');  // inner
-    grad.addColorStop(1, '#5a1e1a');  // outer
+    grad.addColorStop(0, '#deb887'); // burlywood (浅木色，中心亮)
+    grad.addColorStop(1, '#8b5a2b'); // saddlebrown (深木色，外圈暗)
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
 
