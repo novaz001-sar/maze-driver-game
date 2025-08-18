@@ -1835,7 +1835,75 @@ const INTRO_MAZES = [
         // 3D迷宫与视觉生成 (3D Maze & Visuals Generation)
         // ====================================================================
 
-        function createMazeMesh(grid, goal) {
+        
+// === Bollard lamps between adjacent cells ===
+function createBollardLamp({
+  postHeight = 0.6,
+  postRadiusTop = 0.05,
+  postRadiusBottom = 0.06,
+  headRadius = 0.08,
+  colorPost = 0x333333,
+  colorHead = 0xffd700,
+  lightColor = 0xffee88,
+  lightIntensity = 1.3,
+  lightDistance = 2.4,
+  castShadow = true
+} = {}) {
+  const group = new THREE.Group();
+
+  const postGeo = new THREE.CylinderGeometry(postRadiusTop, postRadiusBottom, postHeight, 16);
+  const postMat = new THREE.MeshStandardMaterial({ color: colorPost, metalness: 0.2, roughness: 0.8 });
+  const post = new THREE.Mesh(postGeo, postMat);
+  post.castShadow = castShadow;
+  post.receiveShadow = castShadow;
+  post.position.y = postHeight / 2;
+  group.add(post);
+
+  const headGeo = new THREE.SphereGeometry(headRadius, 16, 12);
+  const headMat = new THREE.MeshStandardMaterial({
+    color: colorHead, emissive: colorHead, emissiveIntensity: 1.4, metalness: 0.0, roughness: 0.4
+  });
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.y = postHeight + headRadius * 0.6;
+  head.castShadow = castShadow;
+  group.add(head);
+
+  const light = new THREE.PointLight(lightColor, lightIntensity, lightDistance, 2.0);
+  light.position.set(0, head.position.y + 0.02, 0);
+  light.castShadow = castShadow;
+  group.add(light);
+
+  return group;
+}
+
+function addBollardsBetweenCells(mazeGroup, gridWidth, gridHeight, TILE_SIZE) {
+  const halfW = (gridWidth * TILE_SIZE) / 2;
+  const halfH = (gridHeight * TILE_SIZE) / 2;
+  const sideOffset = TILE_SIZE * 0.18;
+  const edgeClearance = 0.02;
+  const lampParams = { postHeight: 0.6, headRadius: 0.08, lightIntensity: 1.3, lightDistance: 2.4 };
+
+  // Vertical seams (between X-adjacent cells), seam line along Z
+  for (let i = 0; i < gridWidth - 1; i++) {
+    const seamX = -halfW + (i + 1) * TILE_SIZE;
+    for (let j = 0; j < gridHeight; j++) {
+      const centerZ = -halfH + (j + 0.5) * TILE_SIZE;
+      const L = createBollardLamp(lampParams); L.position.set(seamX - sideOffset, edgeClearance, centerZ); mazeGroup.add(L);
+      const R = createBollardLamp(lampParams); R.position.set(seamX + sideOffset, edgeClearance, centerZ); mazeGroup.add(R);
+    }
+  }
+  // Horizontal seams (between Z-adjacent cells), seam line along X
+  for (let j = 0; j < gridHeight - 1; j++) {
+    const seamZ = -halfH + (j + 1) * TILE_SIZE;
+    for (let i = 0; i < gridWidth; i++) {
+      const centerX = -halfW + (i + 0.5) * TILE_SIZE;
+      const N = createBollardLamp(lampParams); N.position.set(centerX, edgeClearance, seamZ - sideOffset); mazeGroup.add(N);
+      const S = createBollardLamp(lampParams); S.position.set(centerX, edgeClearance, seamZ + sideOffset); mazeGroup.add(S);
+    }
+  }
+}
+
+function createMazeMesh(grid, goal) {
             const gridWidth = grid[0].length;
             const gridHeight = grid.length;
 
@@ -1843,14 +1911,9 @@ const INTRO_MAZES = [
             const floor = new THREE.Mesh(floorPlane, floorMaterial);
             floor.rotation.x = -Math.PI / 2;
             mazeGroup.add(floor);
-            // Make the floor textures repeat exactly once per maze tile
             if (floor.material && floor.material.map) {
                 floor.material.map.repeat.set(gridWidth, gridHeight);
                 floor.material.map.needsUpdate = true;
-            }
-            if (floor.material && floor.material.emissiveMap) {
-                floor.material.emissiveMap.repeat.set(gridWidth, gridHeight);
-                floor.material.emissiveMap.needsUpdate = true;
             }
 
             const wallGeo = new THREE.PlaneGeometry(TILE_SIZE, WALL_HEIGHT);
@@ -1990,7 +2053,7 @@ const INTRO_MAZES = [
             heart.position.set(0, 6.2, 0.2);
             heart.rotation.x = Math.PI;
             heart.scale.set(0.9, 0.9, 0.9);
-            // renderOrder removed to respect depth testing so the heart won't show through walls
+            // renderOrder removed to honor depth testing
 goalMarker.add(heart);
             floatingHeart = heart;
             floatingHeart.userData.baseY = heart.position.y;
@@ -2261,20 +2324,20 @@ goalMarker.add(heart);
         }
 
         
-// === Procedural floor textures: reddish-brown metal tiles + incandescent strips between tiles ===
-function __makeTileTextures(size = 512, stripe = 6) {
+// === Procedural floor texture (no border lights) ===
+function __makeTileTextures(size = 512, innerColor = '#7a2b24', outerColor = '#5a1e1a') {
     const cvs = document.createElement('canvas');
     cvs.width = cvs.height = size;
     const ctx = cvs.getContext('2d');
 
-    // base: reddish-brown metal with a subtle radial gradient
+    // radial gradient base
     const grad = ctx.createRadialGradient(size*0.5, size*0.5, size*0.15, size*0.5, size*0.5, size*0.7);
-    grad.addColorStop(0, '#7a2b24');  // 中心较亮
-    grad.addColorStop(1, '#5a1e1a');  // 外圈较暗
+    grad.addColorStop(0, innerColor);
+    grad.addColorStop(1, outerColor);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
 
-    // faint brushed lines (simulate metallic sheen)
+    // subtle brushed lines to imply material
     ctx.globalAlpha = 0.08;
     for (let y = 0; y < size; y += 4) {
         ctx.fillStyle = (y % 8 === 0) ? '#ffffff' : '#000000';
@@ -2282,73 +2345,15 @@ function __makeTileTextures(size = 512, stripe = 6) {
     }
     ctx.globalAlpha = 1;
 
-    // border "incandescent light strip" around the tile
-    const glowColor = '#ffff00'; // 淡黄色灯带
-    ctx.fillStyle = glowColor;
-    ctx.fillRect(0, 0, size, stripe);                    // top
-    ctx.fillRect(0, size - stripe, size, stripe);        // bottom
-    ctx.fillRect(0, 0, stripe, size);                    // left
-    ctx.fillRect(size - stripe, 0, stripe, size);        // right
-
     const baseTex = new THREE.CanvasTexture(cvs);
     baseTex.wrapS = baseTex.wrapT = THREE.RepeatWrapping;
     baseTex.magFilter = THREE.LinearFilter;
     baseTex.minFilter = THREE.LinearMipMapLinearFilter;
-
-    // emissive map: glow only on borders
-    const cvsE = document.createElement('canvas');
-    cvsE.width = cvsE.height = size;
-    const ctxE = cvsE.getContext('2d');
-    ctxE.fillStyle = '#000';
-    ctxE.fillRect(0, 0, size, size);
-    ctxE.fillStyle = '#ffffff';
-    ctxE.fillRect(0, 0, size, stripe);
-    ctxE.fillRect(0, size - stripe, size, stripe);
-    ctxE.fillRect(0, 0, stripe, size);
-    ctxE.fillRect(size - stripe, 0, stripe, size);
-    const emisTex = new THREE.CanvasTexture(cvsE);
-    emisTex.wrapS = emisTex.wrapT = THREE.RepeatWrapping;
-    emisTex.magFilter = THREE.LinearFilter;
-    emisTex.minFilter = THREE.LinearMipMapLinearFilter;
-
-    return { baseTex: baseTex, emisTex: emisTex };
+    return { baseTex };
 }
 
 function createMaterials() {
             const textureLoader = new THREE.TextureLoader();
-
-// === Sky fallback: programmatic gradient + star field as equirectangular texture ===
-function __makeSkyFallback(size = 2048, stars = 1200) {
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size/2; // equirectangular ratio 2:1
-    const g = c.getContext('2d');
-
-    // gradient from deep blue to purple-black
-    const grad = g.createLinearGradient(0, 0, 0, c.height);
-    grad.addColorStop(0, '#3a6fd8');  // top blue
-    grad.addColorStop(0.6, '#1b2a4a');
-    grad.addColorStop(1, '#130a1f');  // bottom purple-black
-    g.fillStyle = grad;
-    g.fillRect(0, 0, c.width, c.height);
-
-    // star field (brighter near top)
-    for (let i=0;i<stars;i++) {
-        const x = Math.random() * c.width;
-        const y = Math.random() * c.height * (0.85 + 0.15*Math.random());
-        const r = Math.random() * 1.6 + 0.2;
-        const a = 0.55 + Math.random()*0.45;
-        g.fillStyle = `rgba(255,255,255,${a})`;
-        g.beginPath();
-        g.arc(x, y, r, 0, Math.PI*2);
-        g.fill();
-    }
-
-    const tex = new THREE.CanvasTexture(c);
-    tex.mapping = THREE.EquirectangularReflectionMapping;
-    tex.needsUpdate = true;
-    return tex;
-}
-
             wallMaterialNS = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns').trim()),
                 roughness: 0.8,
@@ -2367,21 +2372,13 @@ function __makeSkyFallback(size = 2048, stars = 1200) {
             const repeatsPerMazeTile = 2;
             const largestMazeDim = 25;
             floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
-            const __tileTex = __makeTileTextures();
-floorMaterial = new THREE.MeshStandardMaterial({
-  map: __tileTex.baseTex,
-  metalness: 0.8,
-  roughness: 0.25,
-  emissive: 0xffffff,
-  emissiveMap: __tileTex.emisTex,
-  emissiveIntensity: 1.0
-});
+            floorMaterial = new THREE.MeshStandardMaterial({ map: floorTexture, metalness: 0.6, roughness: 0.35 });
             landmarkMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
                 transparent: true,
                 blending: THREE.AdditiveBlending
             });
-            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 0.05 });
+            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 0.25 });
         }
 
         // ====================================================================
