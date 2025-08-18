@@ -2023,7 +2023,7 @@ const INTRO_MAZES = [
             const arrowMat = new THREE.MeshBasicMaterial({
                 color: 0xffc107,
                 side: THREE.DoubleSide,
-                depthTest: false,
+                ,
                 depthWrite: false
             });
             
@@ -2097,7 +2097,7 @@ const INTRO_MAZES = [
                                 blending: THREE.AdditiveBlending,
                                 fog: false,
                                 depthWrite: false,
-                                depthTest: false
+                                
                             })
                         );
                         // slight offset behind the yellow arrow
@@ -2276,17 +2276,16 @@ const INTRO_MAZES = [
     const floorTexture = textureLoader.load('assets/marble_tiles_512.jpg');
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
-    // three r164 uses colorSpace instead of encoding
     if (THREE.SRGBColorSpace) { floorTexture.colorSpace = THREE.SRGBColorSpace; }
     floorTexture.anisotropy = 4;
-    const largestMazeDim = 25; // keep large repeats for crisp slabs
+    const largestMazeDim = 25;
     const repeatsPerMazeTile = 1.25;
     floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
 
     floorMaterial = new THREE.MeshStandardMaterial({
         map: floorTexture,
-        roughness: 0.9,   // higher roughness to greatly reduce day reflections
-        metalness: 0.05   // very low metalness to avoid mirror-like look
+        roughness: 0.9,
+        metalness: 0.05
     });
 
     landmarkMaterial = new THREE.MeshBasicMaterial({
@@ -2302,40 +2301,9 @@ const INTRO_MAZES = [
         emissive: 0x330000,
         emissiveIntensity: 0.25
     });
-});
-            wallMaterialEW = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ew').trim()),
-                roughness: 0.8,
-                metalness: 0.2
-            });
-            const floorTexture = textureLoader.load('https://threejs.org/examples/textures/checker.png');
-            floorTexture.wrapS = THREE.RepeatWrapping;
-            floorTexture.wrapT = THREE.RepeatWrapping;
-            floorTexture.magFilter = THREE.NearestFilter;
-            floorTexture.minFilter = THREE.NearestFilter;
-            const repeatsPerMazeTile = 2;
-            const largestMazeDim = 25;
-            floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
-            floorMaterial = new THREE.MeshStandardMaterial({
-                map: floorTexture,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-            landmarkMaterial = new THREE.MeshBasicMaterial({
-                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
-                transparent: true,
-                blending: THREE.AdditiveBlending
-            });
-            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 0.25 });
-        }
+}
 
-        // ====================================================================
-        // 小地图 (Minimap)
-        // ====================================================================
-
-        let lastPlayerGridPos = { x: -1, z: -1 };
-
-        function drawMinimapBackground(grid, start, goal) {
+function drawMinimapBackground(grid, start, goal) {
             const canvas = minimap;
             canvas.width = 500;
             canvas.height = 500;
