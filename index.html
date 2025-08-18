@@ -2374,14 +2374,14 @@ floorMaterial = new THREE.MeshStandardMaterial({
   roughness: 0.25,
   emissive: 0xffffff,
   emissiveMap: __tileTex.emisTex,
-  emissiveIntensity: 12.0
+  emissiveIntensity: 1.0
 });
             landmarkMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
                 transparent: true,
                 blending: THREE.AdditiveBlending
             });
-            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 12.25 });
+            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 0.05 });
         }
 
         // ====================================================================
