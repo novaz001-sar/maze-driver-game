@@ -6,18 +6,16 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.8h 用户修改版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.9m 用户修改版 ##
     ============================================================================
 
     这是根据用户请求修改的版本。
 
-    ### v7.8h 更新内容 (What's New in v7.8h)
-    1.  **调整夜空颜色 (Adjusted Night Sky Color)**:
-        * 将夜晚的天空背景色修改为深紫色(0x210033)，使星空效果更加突出。
-    2.  **优化游戏提示 (Optimized In-Game Hints)**:
-        * **箭头说明**: 游戏开始时，提示信息会明确说明黄色箭头仅代表“可选方向”，而非“导航路径”。
-        * **死胡同提示**: 当车辆驶入前方和左右都无路可走的死胡同时，会显示专门的提示，并告知玩家可以通过连续按两次转向键来掉头。
-        * **终点前提示**: 当车辆距离终点仅剩一格时，会弹出提示“再往前一步就到达目的地了！”。
+    ### v7.9m 更新内容 (What's New in v7.9m)
+    1.  **地面重新设计 (Floor Redesign)**:
+        * 将地面材质从棋盘格更换为高分辨率的无缝大理石纹理石板，并优化了纹理的显示效果。
+    2.  **修复视觉穿透 (Fixed Visual Glitch)**:
+        * 终点处招财猫头顶的爱心现在会正确地被墙壁遮挡，不会再“穿墙”显示。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
@@ -1844,6 +1842,12 @@ const INTRO_MAZES = [
             floor.rotation.x = -Math.PI / 2;
             mazeGroup.add(floor);
 
+            // MODIFIED: Set texture repeat based on the actual maze size for correct scaling
+            if (floorMaterial.map) {
+                floorMaterial.map.repeat.set(gridWidth, gridHeight);
+                floorMaterial.map.needsUpdate = true;
+            }
+
             const wallGeo = new THREE.PlaneGeometry(TILE_SIZE, WALL_HEIGHT);
 
             for (let z = 0; z < gridHeight; z++) {
@@ -1976,12 +1980,17 @@ const INTRO_MAZES = [
             heartShape.bezierCurveTo( x + 0.7*s, y + 0.0*s, x + 0.5*s, y + 0.5*s, x + 0.5*s, y + 0.5*s );
             const extrudeSettings = { depth: 0.25, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.08, bevelThickness: 0.08 };
             const heartGeo = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
-            const heartMat = new THREE.MeshBasicMaterial({ color: 0xff4d6d, depthTest: false });
+            
+            // MODIFIED: Set depthTest to true so the heart doesn't render through walls.
+            const heartMat = new THREE.MeshBasicMaterial({ color: 0xff4d6d, depthTest: true });
+            
             const heart = new THREE.Mesh(heartGeo, heartMat);
             heart.position.set(0, 6.2, 0.2);
             heart.rotation.x = Math.PI;
             heart.scale.set(0.9, 0.9, 0.9);
-            heart.renderOrder = 999;
+            
+            // REMOVED: heart.renderOrder = 999; This is no longer needed as depthTest is true.
+            
             goalMarker.add(heart);
             floatingHeart = heart;
             floatingHeart.userData.baseY = heart.position.y;
@@ -2263,19 +2272,38 @@ const INTRO_MAZES = [
                 roughness: 0.8,
                 metalness: 0.2
             });
-            const floorTexture = textureLoader.load('https://threejs.org/examples/textures/checker.png');
-            floorTexture.wrapS = THREE.RepeatWrapping;
-            floorTexture.wrapT = THREE.RepeatWrapping;
-            floorTexture.magFilter = THREE.NearestFilter;
-            floorTexture.minFilter = THREE.NearestFilter;
-            const repeatsPerMazeTile = 2;
-            const largestMazeDim = 25;
-            floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
+
+            // MODIFIED: Use a high-resolution marble texture for the floor
+            const floorTexture = textureLoader.load(
+                'https://cdn.jsdelivr.net/gh/kit-is/three-js-repo/img/marble.jpg',
+                (texture) => {
+                    // This callback is executed when the texture has loaded successfully
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.wrapT = THREE.RepeatWrapping;
+                    texture.magFilter = THREE.LinearFilter;
+                    texture.minFilter = THREE.LinearMipmapLinearFilter;
+                    // Improve texture quality when viewed at an angle
+                    if (renderer) { // Ensure renderer is initialized
+                        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    }
+                    texture.needsUpdate = true;
+                },
+                undefined, // onProgress callback not needed
+                (err) => {
+                    console.error('An error occurred while loading the floor texture.', err);
+                    // Fallback to a simple color if the texture fails to load
+                    floorMaterial.map = null;
+                    floorMaterial.color.set(0xcccccc);
+                    floorMaterial.needsUpdate = true;
+                }
+            );
+
             floorMaterial = new THREE.MeshStandardMaterial({
                 map: floorTexture,
-                roughness: 0.8,
+                roughness: 0.6, // Marble is a bit smoother
                 metalness: 0.1
             });
+
             landmarkMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
                 transparent: true,
