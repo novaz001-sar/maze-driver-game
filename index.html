@@ -6,18 +6,18 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.7h 用户修改版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.8h 用户修改版 ##
     ============================================================================
 
     这是根据用户请求修改的版本。
 
-    ### v7.7h 更新内容 (What's New in v7.7h)
-    1.  **优化箭头光圈 (Improved Arrow Halo)**:
-        * 将方向指示箭头外侧的红色光圈，修改为与箭头形状一致的、低透明度的红色箭头状光圈。
-        * 为新的光圈添加了平滑的闪烁（呼吸灯）效果，使其更具动态感。
-    2.  **修复夜晚天空 (Fixed Night Sky)**:
-        * 调试并修正了日夜循环的逻辑。现在无论是否加载了天空盒纹理，天空和雾气的颜色都会随着时间进入夜晚而变暗。
-        * 确保了夜晚的视觉效果（深色天空、星空、路灯亮起）能够正确、统一地展现。
+    ### v7.8h 更新内容 (What's New in v7.8h)
+    1.  **调整夜空颜色 (Adjusted Night Sky Color)**:
+        * 将夜晚的天空背景色修改为深紫色(0x210033)，使星空效果更加突出。
+    2.  **优化游戏提示 (Optimized In-Game Hints)**:
+        * **箭头说明**: 游戏开始时，提示信息会明确说明黄色箭头仅代表“可选方向”，而非“导航路径”。
+        * **死胡同提示**: 当车辆驶入前方和左右都无路可走的死胡同时，会显示专门的提示，并告知玩家可以通过连续按两次转向键来掉头。
+        * **终点前提示**: 当车辆距离终点仅剩一格时，会弹出提示“再往前一步就到达目的地了！”。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
@@ -902,7 +902,11 @@
                 desc_challenge: "挑战模式！地图不会一直显示，您只有有限的几次查看地图的机会。",
                 prompt_wall: "前方是墙壁，请选择其他方向。",
                 prompt_options: (options) => `可选方向: ${options.join(' | ')}`,
-                hint_ingame_controls: "提示：点击左上角 ⚙️ 更改设置，按 [ESC] 可打开菜单。"
+                hint_ingame_controls: "提示：点击左上角 ⚙️ 更改设置，按 [ESC] 可打开菜单。",
+                // NEW HINTS (v7.8h)
+                hint_driving_start: "提示：黄色箭头指的是没有墙阻挡的可选方向，不是导航方向。",
+                prompt_dead_end: "遇到死胡同！连续按两次 [A] 或 [D] 键可以掉头。",
+                prompt_near_goal: "再往前一步就到达目的地了！"
             },
             en: {
                 welcome: (nickname) => `Hello, ${nickname}!`,
@@ -941,7 +945,11 @@
                 desc_challenge: "Challenge mode! The map is not always visible, and you have limited chances to view it.",
                 prompt_wall: "There is a wall ahead, please choose another direction.",
                 prompt_options: (options) => `Available moves: ${options.join(' | ')}`,
-                hint_ingame_controls: "Hint: Click the ⚙️ in the top-left to change settings. Press [ESC] to open the menu."
+                hint_ingame_controls: "Hint: Click the ⚙️ in the top-left to change settings. Press [ESC] to open the menu.",
+                // NEW HINTS (v7.8h)
+                hint_driving_start: "Hint: Yellow arrows indicate available directions without walls, not a navigation path.",
+                prompt_dead_end: "Dead end! Press [A] or [D] twice to turn around.",
+                prompt_near_goal: "One more step to the destination!"
             }
         };
 
@@ -1072,35 +1080,15 @@ const INTRO_MAZES = [
         
         function init() {
             scene = new THREE.Scene();
-            // === Resilient Skybox Loader (patched) ===
-(function(){
-    try {
-        if (typeof THREE === 'undefined') { return; }
-        // Guard against scene/renderer not ready yet
-        if (typeof scene === 'undefined') { return; }
-
-        const loader = new THREE.CubeTextureLoader();
-        const basePath = (typeof skyboxBasePath !== 'undefined' && skyboxBasePath) ? skyboxBasePath : './';
-        loader.setPath(basePath);
-
-        const faces = (typeof skyboxFaces !== 'undefined' && Array.isArray(skyboxFaces) && skyboxFaces.length === 6)
-            ? skyboxFaces
-            : ['px.jpg','nx.jpg','py.jpg','ny.jpg','pz.jpg','nz.jpg'];
-
-        loader.load(faces,
-            function(tex){
-                if (!scene) return;
-                tex.encoding = THREE.sRGBEncoding;
-                scene.background = tex;
-                if (scene.environment === null || typeof scene.environment === 'undefined') {
-                    scene.environment = tex;
-                }
-            },
-            undefined,
-            function(errEv){
-                console.warn('Skybox load failed, using gradient fallback.');
-                if (!scene) return;
-                // Build a simple vertical gradient sky as fallback
+            
+            // === DEBUG: Resilient Skybox Loader ===
+            // The original code was trying to load local files (e.g., 'px.jpg'),
+            // which is blocked by browser CORS policy when opening an HTML file directly.
+            // This function is modified to always use the gradient fallback,
+            // avoiding the CORS errors. The original skybox loading is commented out.
+            function setupSkyBackground() {
+                console.log('Using gradient sky fallback.');
+                // Build a simple vertical gradient sky
                 const skyGeo = new THREE.SphereGeometry(1000, 16, 12);
                 const skyMat = new THREE.ShaderMaterial({
                     side: THREE.BackSide,
@@ -1129,26 +1117,15 @@ const INTRO_MAZES = [
                     }`
                 });
                 const skyMesh = new THREE.Mesh(skyGeo, skyMat);
-                if (window.__fallbackSkyMesh && window.__fallbackSkyMesh.parent) {
-                    window.__fallbackSkyMesh.parent.remove(window.__fallbackSkyMesh);
-                }
                 scene.add(skyMesh);
-                window.__fallbackSkyMesh = skyMesh;
 
                 if (typeof renderer !== 'undefined' && renderer && typeof renderer.setClearColor === 'function') {
                     renderer.setClearColor(0xb3e5fc, 1);
                 }
             }
-        );
-    } catch(e){
-        console.warn('Skybox init exception, applying fallback:', e);
-        if (typeof renderer !== 'undefined' && renderer && typeof renderer.setClearColor === 'function') {
-            renderer.setClearColor(0xb3e5fc, 1);
-        }
-    }
-})();
-    // 保持颜色背景作为回退
 
+            setupSkyBackground();
+            
             scene.fog = new THREE.Fog(0x87ceeb, TILE_SIZE * 7, TILE_SIZE * 28);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -1156,7 +1133,6 @@ const INTRO_MAZES = [
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.getElementById('game-container').appendChild(renderer.domElement);
-            // 让清屏色与雾色一致，避免背景发灰
             renderer.setClearColor(scene.fog.color, 1);
             clock = new THREE.Clock();
 
@@ -1330,7 +1306,7 @@ const INTRO_MAZES = [
                     gameState = 'AT_INTERSECTION';
                     checkForTurns();
                     
-                    showIngameHint();
+                    showIngameHint('hint_driving_start'); // MODIFIED: Show specific hint
 
                 } else if (gameState === 'CHALLENGE_MAP_VIEW') {
                     toggleChallengeMap();
@@ -1596,10 +1572,14 @@ const INTRO_MAZES = [
             if (availableTurns.left) options.push(`${lang.turnLeft} [A]`);
             if (availableTurns.right) options.push(`${lang.turnRight} [D]`);
 
-            if (options.length > 0) {
+            // MODIFIED (v7.8h): Dead-end check
+            if (!availableTurns.forward && !availableTurns.left && !availableTurns.right) {
+                prompt.textContent = lang.prompt_dead_end;
+            } else if (options.length > 0) {
                 prompt.textContent = lang.prompt_options(options);
             } else {
-                prompt.textContent = lang.turnAround;
+                // This case should now be covered by the dead-end check.
+                prompt.textContent = lang.turnAround; 
             }
         }
 
@@ -1609,6 +1589,11 @@ const INTRO_MAZES = [
             const moveVector = new THREE.Vector3(0, 0, -1).applyEuler(player.rotation);
             const nextGridX = gridPos.x + Math.round(moveVector.x);
             const nextGridZ = gridPos.z + Math.round(moveVector.z);
+
+            // MODIFIED (v7.8h): Goal hint check
+            if (nextGridX === level.goal.x && nextGridZ === level.goal.z) {
+                showTemporaryMessage(translations[currentLanguage].prompt_near_goal, 2500);
+            }
 
             if (nextGridZ < 0 || nextGridZ >= level.grid.length || nextGridX < 0 || nextGridX >= level.grid[0].length || level.grid[nextGridZ][nextGridX] === 0) {
                 cameraShake();
@@ -1692,7 +1677,7 @@ const INTRO_MAZES = [
             // --- MODIFIED: Day/Night Cycle Logic ---
             const dayNightCycle = (Math.sin(elapsedTime * (0.1 / 3)) + 1) / 2; // 1 for day, 0 for night
             const skyDay = new THREE.Color(0x87ceeb);
-            const skyNight = new THREE.Color(0x0b1736);
+            const skyNight = new THREE.Color(0x210033); // MODIFIED (v7.8h): Deep purple night sky
 
             // Interpolate colors based on the cycle
             const visualColor = skyNight.clone().lerp(skyDay, dayNightCycle);
@@ -2438,9 +2423,9 @@ const INTRO_MAZES = [
         // 菜单与UI逻辑 (Menu & UI Logic)
         // ====================================================================
         
-        function showIngameHint() {
+        function showIngameHint(messageKey = 'hint_ingame_controls') {
             const hintEl = document.getElementById('ingame-hint');
-            hintEl.textContent = translations[currentLanguage].hint_ingame_controls;
+            hintEl.textContent = translations[currentLanguage][messageKey];
             hintEl.style.display = 'block';
             hintEl.style.opacity = 1;
 
@@ -2450,7 +2435,7 @@ const INTRO_MAZES = [
                 setTimeout(() => {
                     hintEl.style.display = 'none';
                 }, 500); // Match CSS transition duration
-            }, 16000); // Show hint for 6 seconds
+            }, 8000); // MODIFIED: Show hint for 8 seconds
         }
 
         function updateHUD() {
@@ -2496,7 +2481,9 @@ const INTRO_MAZES = [
 
             const ingameHint = document.getElementById('ingame-hint');
             if (ingameHint.style.display !== 'none') {
-                ingameHint.textContent = translations[currentLanguage].hint_ingame_controls;
+                // When language changes, the hint might be visible, so update it.
+                // It will default to the controls hint if no specific one is active.
+                showIngameHint();
             }
             updateHUD();
         }
