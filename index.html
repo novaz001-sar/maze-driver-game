@@ -1682,13 +1682,6 @@ const INTRO_MAZES = [
             // Apply light intensity changes
             hemisphereLight.intensity = dayNightCycle * 2.0 + 0.4;
             dirLight.intensity = dayNightCycle * 2.5 + 0.3;
-            // Floor reflectivity: much more matte in daytime, a bit glossier at night
-            if (floorMaterial) {
-                // dayNightCycle: 1=day, 0=night
-                floorMaterial.roughness = 0.70 + 0.25 * dayNightCycle; // 0.95 by day, 0.70 by night
-                floorMaterial.metalness = 0.03 + 0.02 * (1.0 - dayNightCycle); // slightly higher at night
-            }
-
 
             const nightIntensity = Math.max(0, 1 - dayNightCycle * 3);
             // --- END MODIFICATION ---
@@ -1983,12 +1976,12 @@ const INTRO_MAZES = [
             heartShape.bezierCurveTo( x + 0.7*s, y + 0.0*s, x + 0.5*s, y + 0.5*s, x + 0.5*s, y + 0.5*s );
             const extrudeSettings = { depth: 0.25, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.08, bevelThickness: 0.08 };
             const heartGeo = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
-            const heartMat = new THREE.MeshStandardMaterial({ color: 0xff4d6d, emissive: 0x330000, emissiveIntensity: 0.35 });
+            const heartMat = new THREE.MeshBasicMaterial({ color: 0xff4d6d, depthTest: false });
             const heart = new THREE.Mesh(heartGeo, heartMat);
             heart.position.set(0, 6.2, 0.2);
             heart.rotation.x = Math.PI;
             heart.scale.set(0.9, 0.9, 0.9);
-            // renderOrder removed to allow normal occlusion with walls
+            heart.renderOrder = 999;
             goalMarker.add(heart);
             floatingHeart = heart;
             floatingHeart.userData.baseY = heart.position.y;
@@ -2023,6 +2016,7 @@ const INTRO_MAZES = [
             const arrowMat = new THREE.MeshBasicMaterial({
                 color: 0xffc107,
                 side: THREE.DoubleSide,
+                depthTest: false,
                 depthWrite: false
             });
             
@@ -2096,7 +2090,7 @@ const INTRO_MAZES = [
                                 blending: THREE.AdditiveBlending,
                                 fog: false,
                                 depthWrite: false,
-                                
+                                depthTest: false
                             })
                         );
                         // slight offset behind the yellow arrow
@@ -2258,51 +2252,45 @@ const INTRO_MAZES = [
         }
 
         function createMaterials() {
-    const textureLoader = new THREE.TextureLoader();
+            const textureLoader = new THREE.TextureLoader();
+            wallMaterialNS = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns').trim()),
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            wallMaterialEW = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ew').trim()),
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const floorTexture = textureLoader.load('https://threejs.org/examples/textures/checker.png');
+            floorTexture.wrapS = THREE.RepeatWrapping;
+            floorTexture.wrapT = THREE.RepeatWrapping;
+            floorTexture.magFilter = THREE.NearestFilter;
+            floorTexture.minFilter = THREE.NearestFilter;
+            const repeatsPerMazeTile = 2;
+            const largestMazeDim = 25;
+            floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
+            floorMaterial = new THREE.MeshStandardMaterial({
+                map: floorTexture,
+                roughness: 0.8,
+                metalness: 0.1
+            });
+            landmarkMaterial = new THREE.MeshBasicMaterial({
+                color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
+                transparent: true,
+                blending: THREE.AdditiveBlending
+            });
+            goalWallMaterial = new THREE.MeshStandardMaterial({ color: 0xff6666, roughness: 0.6, metalness: 0.2, emissive: 0x330000, emissiveIntensity: 0.25 });
+        }
 
-    wallMaterialNS = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ns').trim()),
-        roughness: 0.85,
-        metalness: 0.15
-    });
-    wallMaterialEW = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--wall-color-ew').trim()),
-        roughness: 0.85,
-        metalness: 0.15
-    });
+        // ====================================================================
+        // 小地图 (Minimap)
+        // ====================================================================
 
-    // === Floor: switch to marble slab texture (tileable) ===
-    const floorTexture = textureLoader.load('assets/marble_tiles_512.jpg');
-    floorTexture.wrapS = THREE.RepeatWrapping;
-    floorTexture.wrapT = THREE.RepeatWrapping;
-    if (THREE.SRGBColorSpace) { floorTexture.colorSpace = THREE.SRGBColorSpace; }
-    floorTexture.anisotropy = 4;
-    const largestMazeDim = 25;
-    const repeatsPerMazeTile = 1.25;
-    floorTexture.repeat.set(largestMazeDim * repeatsPerMazeTile, largestMazeDim * repeatsPerMazeTile);
+        let lastPlayerGridPos = { x: -1, z: -1 };
 
-    floorMaterial = new THREE.MeshStandardMaterial({
-        map: floorTexture,
-        roughness: 0.9,
-        metalness: 0.05
-    });
-
-    landmarkMaterial = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
-        transparent: true,
-        blending: THREE.AdditiveBlending
-    });
-
-    goalWallMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff6666,
-        roughness: 0.6,
-        metalness: 0.2,
-        emissive: 0x330000,
-        emissiveIntensity: 0.25
-    });
-}
-
-function drawMinimapBackground(grid, start, goal) {
+        function drawMinimapBackground(grid, start, goal) {
             const canvas = minimap;
             canvas.width = 500;
             canvas.height = 500;
