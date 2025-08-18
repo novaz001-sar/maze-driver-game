@@ -1086,43 +1086,28 @@ const INTRO_MAZES = [
             // which is blocked by browser CORS policy when opening an HTML file directly.
             // This function is modified to always use the gradient fallback,
             // avoiding the CORS errors. The original skybox loading is commented out.
-            function setupSkyBackground() {
-                console.log('Using gradient sky fallback.');
-                // Build a simple vertical gradient sky
-                const skyGeo = new THREE.SphereGeometry(1000, 16, 12);
-                const skyMat = new THREE.ShaderMaterial({
-                    side: THREE.BackSide,
-                    depthWrite: false,
-                    uniforms: {
-                        topColor: { value: new THREE.Color(0x87ceeb) },
-                        bottomColor: { value: new THREE.Color(0xb3e5fc) },
-                        offset: { value: 33 },
-                        exponent: { value: 0.6 }
-                    },
-                    vertexShader: `varying vec3 vWorldPosition;
-                    void main(){
-                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-                        vWorldPosition = worldPosition.xyz;
-                        gl_Position = projectionMatrix * viewMatrix * worldPosition;
-                    }`,
-                    fragmentShader: `varying vec3 vWorldPosition;
-                    uniform vec3 topColor;
-                    uniform vec3 bottomColor;
-                    uniform float offset;
-                    uniform float exponent;
-                    void main(){
-                        float h = normalize(vWorldPosition + offset).y;
-                        float f = pow(max(h, 0.0), exponent);
-                        gl_FragColor = vec4(mix(bottomColor, topColor, f), 1.0);
-                    }`
-                });
-                const skyMesh = new THREE.Mesh(skyGeo, skyMat);
-                scene.add(skyMesh);
+         function setupSkyBackground() {
+  const loader = new THREE.TextureLoader();
+  loader.load(
+    'assets/sky_gradient_starry.png',
+    function (texture) {
+      // 使用 equirectangular 映射，使全景天空正确显示
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      // 设置场景背景和环境贴图为星空纹理
+      scene.background = texture;
+      scene.environment = texture;
+    },
+    undefined,
+    function (err) {
+      console.warn('Failed to load sky texture', err);
+      // 如果加载失败，可设置备用颜色或简易渐变
+      if (typeof renderer !== 'undefined' && renderer.setClearColor) {
+        renderer.setClearColor(0x0a152b, 1); // 备用深色天空
+      }
+    }
+  );
+}
 
-                if (typeof renderer !== 'undefined' && renderer && typeof renderer.setClearColor === 'function') {
-                    renderer.setClearColor(0xb3e5fc, 1);
-                }
-            }
 
             setupSkyBackground();
             
