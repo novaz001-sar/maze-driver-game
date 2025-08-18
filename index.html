@@ -6,18 +6,18 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.6 详细地图说明版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.7h 用户修改版 ##
     ============================================================================
 
-    这是根据用户请求修改的版本，在v7.5的布局基础上，恢复了大地图元素的详细说明。
+    这是根据用户请求修改的版本。
 
-    ### v7.6 更新内容 (What's New in v7.6)
-    1.  **恢复大地图详细说明 (Restored Detailed Map Legend)**:
-        * 在大地图观察阶段，左侧的说明面板现在会详细列出各个地图元素的含义，包括“您的位置”、“起点”、“终点”等。
-        * 每个说明项都配有对应的颜色标识，与地图上的元素颜色一致，帮助玩家快速识别。
-        * 保留了“点击地图开始驾驶”的核心操作指令。
-    2.  **UI微调 (Minor UI Tweaks)**:
-        * 为新的地图图例添加了样式，使其清晰易读。
+    ### v7.7h 更新内容 (What's New in v7.7h)
+    1.  **优化箭头光圈 (Improved Arrow Halo)**:
+        * 将方向指示箭头外侧的红色光圈，修改为与箭头形状一致的、低透明度的红色箭头状光圈。
+        * 为新的光圈添加了平滑的闪烁（呼吸灯）效果，使其更具动态感。
+    2.  **修复夜晚天空 (Fixed Night Sky)**:
+        * 调试并修正了日夜循环的逻辑。现在无论是否加载了天空盒纹理，天空和雾气的颜色都会随着时间进入夜晚而变暗。
+        * 确保了夜晚的视觉效果（深色天空、星空、路灯亮起）能够正确、统一地展现。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
@@ -824,11 +824,12 @@
         const LUCKY_CAT = {
             WAVE_CENTER_DEG: 30,
             WAVE_AMPL_DEG: 10,
-            WAVE_SPEED: 15.0,
+            WAVE_SPEED: 5.0,
             WRIST_AMPL_DEG: 8,
-            WRIST_SPEED: 30.0
+            WRIST_SPEED: 10.0
         };
         let scene, camera, renderer, clock;
+        let starField;
         let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel;
         let minimap, minimapCtx;
         
@@ -1071,23 +1072,83 @@ const INTRO_MAZES = [
         
         function init() {
             scene = new THREE.Scene();
-            const loader = new THREE.CubeTextureLoader();
-loader.setCrossOrigin('anonymous');
-// 默认先用实色天空作为兜底，防止纹理加载失败时画面发灰
-scene.background = new THREE.Color(0x87ceeb);
-loader.load([
-    'https://threejs.org/examples/textures/cube/skyboxsun25deg/px.jpg',
-    'https://threejs.org/examples/textures/cube/skyboxsun25deg/nx.jpg',
-    'https://threejs.org/examples/textures/cube/skyboxsun25deg/py.jpg',
-    'https://threejs.org/examples/textures/cube/skyboxsun25deg/ny.jpg',
-    'https://threejs.org/examples/textures/cube/skyboxsun25deg/pz.jpg',
-    'https://threejs.org/examples/textures/cube/skyboxsun25deg/nz.jpg',
-], (tex) => {
-    scene.background = tex;
-}, undefined, (err) => {
-    console.warn('Skybox load failed:', err);
+            // === Resilient Skybox Loader (patched) ===
+(function(){
+    try {
+        if (typeof THREE === 'undefined') { return; }
+        // Guard against scene/renderer not ready yet
+        if (typeof scene === 'undefined') { return; }
+
+        const loader = new THREE.CubeTextureLoader();
+        const basePath = (typeof skyboxBasePath !== 'undefined' && skyboxBasePath) ? skyboxBasePath : './';
+        loader.setPath(basePath);
+
+        const faces = (typeof skyboxFaces !== 'undefined' && Array.isArray(skyboxFaces) && skyboxFaces.length === 6)
+            ? skyboxFaces
+            : ['px.jpg','nx.jpg','py.jpg','ny.jpg','pz.jpg','nz.jpg'];
+
+        loader.load(faces,
+            function(tex){
+                if (!scene) return;
+                tex.encoding = THREE.sRGBEncoding;
+                scene.background = tex;
+                if (scene.environment === null || typeof scene.environment === 'undefined') {
+                    scene.environment = tex;
+                }
+            },
+            undefined,
+            function(errEv){
+                console.warn('Skybox load failed, using gradient fallback.');
+                if (!scene) return;
+                // Build a simple vertical gradient sky as fallback
+                const skyGeo = new THREE.SphereGeometry(1000, 16, 12);
+                const skyMat = new THREE.ShaderMaterial({
+                    side: THREE.BackSide,
+                    depthWrite: false,
+                    uniforms: {
+                        topColor: { value: new THREE.Color(0x87ceeb) },
+                        bottomColor: { value: new THREE.Color(0xb3e5fc) },
+                        offset: { value: 33 },
+                        exponent: { value: 0.6 }
+                    },
+                    vertexShader: `varying vec3 vWorldPosition;
+                    void main(){
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+                    }`,
+                    fragmentShader: `varying vec3 vWorldPosition;
+                    uniform vec3 topColor;
+                    uniform vec3 bottomColor;
+                    uniform float offset;
+                    uniform float exponent;
+                    void main(){
+                        float h = normalize(vWorldPosition + offset).y;
+                        float f = pow(max(h, 0.0), exponent);
+                        gl_FragColor = vec4(mix(bottomColor, topColor, f), 1.0);
+                    }`
+                });
+                const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+                if (window.__fallbackSkyMesh && window.__fallbackSkyMesh.parent) {
+                    window.__fallbackSkyMesh.parent.remove(window.__fallbackSkyMesh);
+                }
+                scene.add(skyMesh);
+                window.__fallbackSkyMesh = skyMesh;
+
+                if (typeof renderer !== 'undefined' && renderer && typeof renderer.setClearColor === 'function') {
+                    renderer.setClearColor(0xb3e5fc, 1);
+                }
+            }
+        );
+    } catch(e){
+        console.warn('Skybox init exception, applying fallback:', e);
+        if (typeof renderer !== 'undefined' && renderer && typeof renderer.setClearColor === 'function') {
+            renderer.setClearColor(0xb3e5fc, 1);
+        }
+    }
+})();
     // 保持颜色背景作为回退
-});
+
             scene.fog = new THREE.Fog(0x87ceeb, TILE_SIZE * 7, TILE_SIZE * 28);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
@@ -1142,6 +1203,8 @@ loader.load([
             
             setupUI();
             updateUIText();
+            
+            createStarField();
             
             animate();
         }
@@ -1626,28 +1689,33 @@ loader.load([
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
             
-            const dayNightCycle = (Math.sin(elapsedTime * 0.1) + 1) / 2;
-            {
-                const skyDay = new THREE.Color(0x87ceeb);
-                const skyNight = new THREE.Color(0x0b1736);
-                const fogColor = skyNight.clone().lerp(skyDay, dayNightCycle);
-                if (scene.fog) scene.fog.color.copy(fogColor);
+            // --- MODIFIED: Day/Night Cycle Logic ---
+            const dayNightCycle = (Math.sin(elapsedTime * (0.1 / 3)) + 1) / 2; // 1 for day, 0 for night
+            const skyDay = new THREE.Color(0x87ceeb);
+            const skyNight = new THREE.Color(0x0b1736);
+
+            // Interpolate colors based on the cycle
+            const visualColor = skyNight.clone().lerp(skyDay, dayNightCycle);
+
+            // Apply colors for visual effect
+            if (scene.fog) {
+                scene.fog.color.copy(visualColor);
             }
-            const nightIntensity = Math.max(0, 1 - dayNightCycle * 4);
-            
-            if (scene.background && scene.background.isCubeTexture) {
-                hemisphereLight.intensity = dayNightCycle * 1.5 + 0.2;
-                dirLight.intensity = dayNightCycle * 2.0 + 0.2;
-            } else {
-                const skyDay = new THREE.Color(0x87ceeb);
-                const skyNight = new THREE.Color(0x0b1736);
-                const fogColor = skyNight.clone().lerp(skyDay, dayNightCycle);
-                if (scene.fog) scene.fog.color.copy(fogColor);
-                renderer.setClearColor(fogColor, 1);
-                scene.background = fogColor;
-                hemisphereLight.intensity = dayNightCycle * 2.5 + 0.5;
+            // If there's no skybox, the background should be the calculated color.
+            // If there IS a skybox, the fog will tint the scene, which is the desired effect.
+            if (!scene.background || !scene.background.isCubeTexture) {
+                 scene.background = visualColor;
             }
-            
+            // Always update the renderer's clear color to match the fog, preventing grey flashes.
+            renderer.setClearColor(visualColor, 1);
+
+            // Apply light intensity changes
+            hemisphereLight.intensity = dayNightCycle * 2.0 + 0.4;
+            dirLight.intensity = dayNightCycle * 2.5 + 0.3;
+
+            const nightIntensity = Math.max(0, 1 - dayNightCycle * 3);
+            // --- END MODIFICATION ---
+
             sceneryGroup.children.forEach(sceneryObject => {
                 const light = sceneryObject.getObjectByName('lampLight');
                 if (light) {
@@ -1720,6 +1788,21 @@ loader.load([
             
             if (['DRIVING', 'TURNING', 'AT_INTERSECTION', 'BIG_MAP'].includes(gameState)) {
                 updateMinimapPlayer();
+            }
+
+            // --- MODIFIED: Arrow glow pulse ---
+            landmarksGroup.traverse(child => {
+                if (child.name === 'arrowGlow') {
+                    // Pulsating effect for the red arrow halo
+                    child.material.opacity = (Math.sin(elapsedTime * 6 + child.userData.phase) + 1) / 2 * 0.6 + 0.1; // Pulse between 0.1 and 0.7
+                }
+            });
+            // --- END MODIFICATION ---
+
+            // Night stars visibility (brighter at night, a bit visible at dusk)
+            if (typeof starField !== 'undefined' && starField && starField.material) {
+                const nightFactor = Math.max(0, 1 - dayNightCycle * 1.15);
+                starField.material.opacity = Math.min(1.0, Math.pow(nightFactor, 0.6) * 1.2);
             }
 
             renderer.render(scene, camera);
@@ -1997,6 +2080,56 @@ loader.load([
                     arrow.position.copy(d.pos);
                     arrow.rotation.z = d.rotZ;
                     landmarksGroup.add(arrow);
+                    
+                    // --- MODIFIED: Red pulsating ARROW-SHAPED halo that wraps the yellow arrow ---
+                    {
+                        // Build outer and inner arrow shapes to create a thin outline band
+                        const scaleOuter = 1.12;
+                        const scaleInner = 1.00;
+
+                        const outer = new THREE.Shape();
+                        outer.moveTo(0,  (h/2)*scaleOuter);
+                        outer.lineTo((w/2)*scaleOuter, 0);
+                        outer.lineTo((w/4)*scaleOuter, 0);
+                        outer.lineTo((w/4)*scaleOuter, (-h/2)*scaleOuter);
+                        outer.lineTo((-w/4)*scaleOuter, (-h/2)*scaleOuter);
+                        outer.lineTo((-w/4)*scaleOuter, 0);
+                        outer.lineTo((-w/2)*scaleOuter, 0);
+                        outer.closePath();
+
+                        const inner = new THREE.Shape();
+                        inner.moveTo(0,  (h/2)*scaleInner);
+                        inner.lineTo((w/2)*scaleInner, 0);
+                        inner.lineTo((w/4)*scaleInner, 0);
+                        inner.lineTo((w/4)*scaleInner, (-h/2)*scaleInner);
+                        inner.lineTo((-w/4)*scaleInner, (-h/2)*scaleInner);
+                        inner.lineTo((-w/4)*scaleInner, 0);
+                        inner.lineTo((-w/2)*scaleInner, 0);
+                        inner.closePath();
+
+                        outer.holes.push(inner);
+
+                        const haloGeo = new THREE.ShapeGeometry(outer);
+                        const glow = new THREE.Mesh(
+                            haloGeo,
+                            new THREE.MeshBasicMaterial({
+                                color: 0xff0000,
+                                transparent: true,
+                                opacity: 0.5, // Initial opacity, will be animated
+                                side: THREE.DoubleSide,
+                                blending: THREE.AdditiveBlending,
+                                fog: false,
+                                depthWrite: false,
+                                depthTest: false
+                            })
+                        );
+                        // slight offset behind the yellow arrow
+                        glow.position.set(0, 0, -0.003);
+                        glow.name = 'arrowGlow';
+                        glow.userData.phase = Math.random() * Math.PI * 2; // Random phase for desynchronized flashing
+                        arrow.add(glow);
+                    }
+                    // --- END MODIFICATION ---
                 }
             }
             return available;
@@ -2036,7 +2169,48 @@ loader.load([
             return wheelGroup;
         }
         
-        function createClassicalLamp() {
+        // === Night Sky: Stars ===
+        function createStarField(){
+    const starCount = 4500;
+    const radius = 500;
+    const positions = new Float32Array(starCount * 3);
+    let i = 0;
+    while (i < starCount) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2 * v - 1); // 0..pi
+        const y = Math.cos(phi);
+        // Only upper hemisphere so stars stay in the "sky"
+        if (y < 0.02) continue;
+        const r = radius;
+        const x = r * Math.sin(phi) * Math.cos(theta);
+        const yy = r * y;
+        const z = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 0] = x;
+        positions[i * 3 + 1] = yy;
+        positions[i * 3 + 2] = z;
+        i++;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+        size: 2.0,
+        sizeAttenuation: true,
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false,
+        depthTest: true,        // stars occluded by walls
+        blending: THREE.AdditiveBlending,
+        fog: false
+    });
+    starField = new THREE.Points(geo, mat);
+    starField.frustumCulled = false;
+    starField.renderOrder = 0;
+    scene.add(starField);
+}
+            function createClassicalLamp() {
             const group = new THREE.Group();
             const postMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.6, metalness: 0.4 });
             const baseGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.2, 8);
@@ -2357,8 +2531,7 @@ loader.load([
                 container.classList.remove('small-map');
                 container.classList.add('big-map');
                 container.style.display = 'block';
-                renderer.render(scene, camera);
-            }
+}
         }
 
         function showLevelSelectModal() {
