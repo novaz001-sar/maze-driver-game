@@ -2283,7 +2283,7 @@ function __makeTileTextures(size = 512, stripe = 6) {
     ctx.globalAlpha = 1;
 
     // border "incandescent light strip" around the tile
-    const glowColor = '#ffd700'; // 淡黄色灯带
+    const glowColor = '#ffff00'; // 淡黄色灯带
     ctx.fillStyle = glowColor;
     ctx.fillRect(0, 0, size, stripe);                    // top
     ctx.fillRect(0, size - stripe, size, stripe);        // bottom
@@ -2374,7 +2374,7 @@ floorMaterial = new THREE.MeshStandardMaterial({
   roughness: 0.25,
   emissive: 0xffffff,
   emissiveMap: __tileTex.emisTex,
-  emissiveIntensity: 1.15
+  emissiveIntensity: 2.0
 });
             landmarkMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(getComputedStyle(document.body).getPropertyValue('--landmark-color').trim()),
