@@ -6,18 +6,16 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.8h 用户修改版 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.9 ##
     ============================================================================
 
     这是根据用户请求修改的版本。
 
-    ### v7.8h 更新内容 (What's New in v7.8h)
-    1.  **调整夜空颜色 (Adjusted Night Sky Color)**:
-        * 将夜晚的天空背景色修改为深紫色(0x210033)，使星空效果更加突出。
-    2.  **优化游戏提示 (Optimized In-Game Hints)**:
-        * **箭头说明**: 游戏开始时，提示信息会明确说明黄色箭头仅代表“可选方向”，而非“导航路径”。
-        * **死胡同提示**: 当车辆驶入前方和左右都无路可走的死胡同时，会显示专门的提示，并告知玩家可以通过连续按两次转向键来掉头。
-        * **终点前提示**: 当车辆距离终点仅剩一格时，会弹出提示“再往前一步就到达目的地了！”。
+    ### v7.9 更新内容 (What's New in v7.9)
+    1.  **键位修改 (Controls Change)**:
+        * 向前移动的按键已从 `空格 (Space)` 更改为 `W` 键。
+    2.  **文本更新 (Text Update)**:
+        * 游戏内所有相关的操作说明已同步更新为 `W` 键。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
@@ -25,12 +23,12 @@
     2.  **选择方向或前进**:
         * 按下 `D` 键，车辆会**平滑地向右转90度**。
         * 按下 `A` 键，车辆会**平滑地向左转90度**。
-        * 按下 `空格 (Space)` 键，车辆会沿当前方向**前进一格**。
+        * 按下 `W` 键，车辆会沿当前方向**前进一格**。
     
     ### 键位 (Controls)
     * `A`: 向左转90度 (Turn Left)。
     * `D`: 向右转90度 (Turn Right)。
-    * `空格 (Space)`: 前进一格 (Move Forward)。
+    * `W`: 前进一格 (Move Forward)。
     * `E`: (仅自主导航模式) 打开/关闭大地图 (Toggle Full Map in Autonomous Navigation Mode)。
     * `ESC`: 呼出/关闭菜单 (Toggle Menu)。
     * `鼠标左键`: 点击UI元素 (Click UI Elements)。
@@ -848,7 +846,8 @@
         let previousGameState = '';
         let unlockedLevel = 0;
 
-        const keyState = { 'a': false, 'd': false, 'e': false, 'space': false, 'escape': false };
+        // MODIFIED: Changed 'space' to 'w' for moving forward
+        const keyState = { 'a': false, 'd': false, 'e': false, 'w': false, 'escape': false };
         let keyDebounce = false;
 
         let wallMaterialNS, wallMaterialEW, floorMaterial, landmarkMaterial, goalWallMaterial;
@@ -883,7 +882,8 @@
                 turnLeft: "向左",
                 turnRight: "向右",
                 turnAround: "掉头",
-                helperText: "按 A/D 转向, 空格前进",
+                // MODIFIED: Updated helper text to use 'W'
+                helperText: "按 A/D 转向, W 前进",
                 level: "关卡",
                 confirmReset: "您确定要重置所有游戏数据吗？此操作无法撤销。",
                 allLevelsCleared: "恭喜你！已通关所有关卡！",
@@ -903,7 +903,6 @@
                 prompt_wall: "前方是墙壁，请选择其他方向。",
                 prompt_options: (options) => `可选方向: ${options.join(' | ')}`,
                 hint_ingame_controls: "提示：点击左上角 ⚙️ 更改设置，按 [ESC] 可打开菜单。",
-                // NEW HINTS (v7.8h)
                 hint_driving_start: "提示：黄色箭头指的是没有墙阻挡的可选方向，不是导航方向。",
                 prompt_dead_end: "遇到死胡同！连续按两次 [A] 或 [D] 键可以掉头。",
                 prompt_near_goal: "再往前一步就到达目的地了！"
@@ -926,7 +925,8 @@
                 turnLeft: "Turn Left",
                 turnRight: "Turn Right",
                 turnAround: "Turn Around",
-                helperText: "Use A/D to turn, Space to move",
+                // MODIFIED: Updated helper text to use 'W'
+                helperText: "Use A/D to turn, W to move",
                 level: "Level",
                 confirmReset: "Are you sure you want to reset all game data? This action cannot be undone.",
                 allLevelsCleared: "Congratulations! You have cleared all levels!",
@@ -946,7 +946,6 @@
                 prompt_wall: "There is a wall ahead, please choose another direction.",
                 prompt_options: (options) => `Available moves: ${options.join(' | ')}`,
                 hint_ingame_controls: "Hint: Click the ⚙️ in the top-left to change settings. Press [ESC] to open the menu.",
-                // NEW HINTS (v7.8h)
                 hint_driving_start: "Hint: Yellow arrows indicate available directions without walls, not a navigation path.",
                 prompt_dead_end: "Dead end! Press [A] or [D] twice to turn around.",
                 prompt_near_goal: "One more step to the destination!"
@@ -1553,17 +1552,16 @@ const INTRO_MAZES = [
             prompt.style.display = 'inline-block';
             
             const options = [];
-            if (availableTurns.forward) options.push(`${lang.forward} [空格]`);
+            // MODIFIED: Updated prompt to show 'W' key
+            if (availableTurns.forward) options.push(`${lang.forward} [W]`);
             if (availableTurns.left) options.push(`${lang.turnLeft} [A]`);
             if (availableTurns.right) options.push(`${lang.turnRight} [D]`);
 
-            // MODIFIED (v7.8h): Dead-end check
             if (!availableTurns.forward && !availableTurns.left && !availableTurns.right) {
                 prompt.textContent = lang.prompt_dead_end;
             } else if (options.length > 0) {
                 prompt.textContent = lang.prompt_options(options);
             } else {
-                // This case should now be covered by the dead-end check.
                 prompt.textContent = lang.turnAround; 
             }
         }
@@ -1575,7 +1573,6 @@ const INTRO_MAZES = [
             const nextGridX = gridPos.x + Math.round(moveVector.x);
             const nextGridZ = gridPos.z + Math.round(moveVector.z);
 
-            // MODIFIED (v7.8h): Goal hint check
             if (nextGridX === level.goal.x && nextGridZ === level.goal.z) {
                 showTemporaryMessage(translations[currentLanguage].prompt_near_goal, 2500);
             }
@@ -1659,32 +1656,23 @@ const INTRO_MAZES = [
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
             
-            // --- MODIFIED: Day/Night Cycle Logic ---
             const dayNightCycle = (Math.sin(elapsedTime * (0.1 / 3)) + 1) / 2; // 1 for day, 0 for night
             const skyDay = new THREE.Color(0x87ceeb);
-            const skyNight = new THREE.Color(0x210033); // MODIFIED (v7.8h): Deep purple night sky
-
-            // Interpolate colors based on the cycle
+            const skyNight = new THREE.Color(0x210033); 
             const visualColor = skyNight.clone().lerp(skyDay, dayNightCycle);
 
-            // Apply colors for visual effect
             if (scene.fog) {
                 scene.fog.color.copy(visualColor);
             }
-            // If there's no skybox, the background should be the calculated color.
-            // If there IS a skybox, the fog will tint the scene, which is the desired effect.
             if (!scene.background || !scene.background.isCubeTexture) {
                  scene.background = visualColor;
             }
-            // Always update the renderer's clear color to match the fog, preventing grey flashes.
             renderer.setClearColor(visualColor, 1);
 
-            // Apply light intensity changes
             hemisphereLight.intensity = dayNightCycle * 2.0 + 0.4;
             dirLight.intensity = dayNightCycle * 2.5 + 0.3;
 
             const nightIntensity = Math.max(0, 1 - dayNightCycle * 3);
-            // --- END MODIFICATION ---
 
             sceneryGroup.children.forEach(sceneryObject => {
                 const light = sceneryObject.getObjectByName('lampLight');
@@ -1760,16 +1748,12 @@ const INTRO_MAZES = [
                 updateMinimapPlayer();
             }
 
-            // --- MODIFIED: Arrow glow pulse ---
             landmarksGroup.traverse(child => {
                 if (child.name === 'arrowGlow') {
-                    // Pulsating effect for the red arrow halo
-                    child.material.opacity = (Math.sin(elapsedTime * 6 + child.userData.phase) + 1) / 2 * 0.6 + 0.1; // Pulse between 0.1 and 0.7
+                    child.material.opacity = (Math.sin(elapsedTime * 6 + child.userData.phase) + 1) / 2 * 0.6 + 0.1; 
                 }
             });
-            // --- END MODIFICATION ---
 
-            // Night stars visibility (brighter at night, a bit visible at dusk)
             if (typeof starField !== 'undefined' && starField && starField.material) {
                 const nightFactor = Math.max(0, 1 - dayNightCycle * 1.15);
                 starField.material.opacity = Math.min(1.0, Math.pow(nightFactor, 0.6) * 1.2);
@@ -1819,8 +1803,8 @@ const INTRO_MAZES = [
                     targetRotation.y += Math.PI / 2;
                 }
                 gameState = 'TURNING';
-                
-            } else if (key === ' ' || key === 'spacebar') {
+            // MODIFIED: Changed key check from 'space' to 'w'
+            } else if (key === 'w') {
                 setupMove();
             }
         }
@@ -2123,9 +2107,7 @@ goalMarker.add(heart);
                     arrow.rotation.z = d.rotZ;
                     landmarksGroup.add(arrow);
                     
-                    // --- MODIFIED: Red pulsating ARROW-SHAPED halo that wraps the yellow arrow ---
                     {
-                        // Build outer and inner arrow shapes to create a thin outline band
                         const scaleOuter = 1.12;
                         const scaleInner = 1.00;
 
@@ -2157,7 +2139,7 @@ goalMarker.add(heart);
                             new THREE.MeshBasicMaterial({
                                 color: 0xff0000,
                                 transparent: true,
-                                opacity: 0.5, // Initial opacity, will be animated
+                                opacity: 0.5,
                                 side: THREE.DoubleSide,
                                 blending: THREE.AdditiveBlending,
                                 fog: false,
@@ -2165,13 +2147,11 @@ goalMarker.add(heart);
                                 depthTest: false
                             })
                         );
-                        // slight offset behind the yellow arrow
                         glow.position.set(0, 0, -0.003);
                         glow.name = 'arrowGlow';
-                        glow.userData.phase = Math.random() * Math.PI * 2; // Random phase for desynchronized flashing
+                        glow.userData.phase = Math.random() * Math.PI * 2;
                         arrow.add(glow);
                     }
-                    // --- END MODIFICATION ---
                 }
             }
             return available;
@@ -2211,7 +2191,6 @@ goalMarker.add(heart);
             return wheelGroup;
         }
         
-        // === Night Sky: Stars ===
         function createStarField(){
     const starCount = 4500;
     const radius = 500;
@@ -2221,9 +2200,8 @@ goalMarker.add(heart);
         const u = Math.random();
         const v = Math.random();
         const theta = 2 * Math.PI * u;
-        const phi = Math.acos(2 * v - 1); // 0..pi
+        const phi = Math.acos(2 * v - 1);
         const y = Math.cos(phi);
-        // Only upper hemisphere so stars stay in the "sky"
         if (y < 0.02) continue;
         const r = radius;
         const x = r * Math.sin(phi) * Math.cos(theta);
@@ -2243,7 +2221,7 @@ goalMarker.add(heart);
         transparent: true,
         opacity: 0.0,
         depthWrite: false,
-        depthTest: true,        // stars occluded by walls
+        depthTest: true,
         blending: THREE.AdditiveBlending,
         fog: false
     });
@@ -2324,20 +2302,17 @@ goalMarker.add(heart);
         }
 
         
-// === Procedural floor texture (no border lights) ===
 function __makeTileTextures(size = 512, innerColor = '#7a2b24', outerColor = '#5a1e1a') {
     const cvs = document.createElement('canvas');
     cvs.width = cvs.height = size;
     const ctx = cvs.getContext('2d');
 
-    // radial gradient base
     const grad = ctx.createRadialGradient(size*0.5, size*0.5, size*0.15, size*0.5, size*0.5, size*0.7);
     grad.addColorStop(0, innerColor);
     grad.addColorStop(1, outerColor);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
 
-    // subtle brushed lines to imply material
     ctx.globalAlpha = 0.08;
     for (let y = 0; y < size; y += 4) {
         ctx.fillStyle = (y % 8 === 0) ? '#ffffff' : '#000000';
@@ -2516,8 +2491,8 @@ function createMaterials() {
                 hintEl.style.opacity = 0;
                 setTimeout(() => {
                     hintEl.style.display = 'none';
-                }, 500); // Match CSS transition duration
-            }, 8000); // MODIFIED: Show hint for 8 seconds
+                }, 500);
+            }, 8000);
         }
 
         function updateHUD() {
@@ -2559,12 +2534,9 @@ function createMaterials() {
             if (gameState === 'AT_INTERSECTION') {
                 checkForTurns();
             }
-            // 保留玩家当前关卡选择，不要在此处重建开发者面板以避免重置为第一关。
 
             const ingameHint = document.getElementById('ingame-hint');
             if (ingameHint.style.display !== 'none') {
-                // When language changes, the hint might be visible, so update it.
-                // It will default to the controls hint if no specific one is active.
                 showIngameHint();
             }
             updateHUD();
