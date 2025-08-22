@@ -848,7 +848,7 @@ function createNumberBadgeSprite(numberId=1){
     ctx.fillStyle = '#1b1b1b'; ctx.fillText(String(numberId), cx, cy+6);
     ctx.shadowColor = 'transparent'; ctx.lineWidth = 18; ctx.strokeStyle = '#ffffff'; ctx.strokeText(String(numberId), cx, cy+6);
     const tex = new THREE.CanvasTexture(canvas); tex.needsUpdate = true;
-    const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false });
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: true });
     const sprite = new THREE.Sprite(spriteMat);
     sprite.scale.set(1.2, 1.2, 1.2);
     sprite.position.set(0, 2.35, 0.62);
@@ -1115,7 +1115,7 @@ async function loadPuppyFromURL(url, numberId=1){
 
             const tex = new THREE.CanvasTexture(canvas);
             tex.needsUpdate = true;
-            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false });
+            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: true });
             const sprite = new THREE.Sprite(spriteMat);
             sprite.scale.set(1.2, 1.2, 1.2);
             sprite.position.set(0, 2.35, 0.62);
@@ -1280,7 +1280,7 @@ function replaceNumberWithGoldStar(obj3d) {
             replaceNumberWithGoldStar(dog);
             // mark for float-up animation
             dog.userData.collected = true;
-            dog.userData.floatYTarget = (dog.position.y || 0) + 2.4;
+            dog.userData.floatYTarget = Math.max((dog.position.y || 0), 6.2);
             dog.userData.floatSpeed = 0.9; // units per second
             const worldPos = gridToWorld(gridPos.x, gridPos.z, (currentLevelIndex===-1?customLevels[selectedCustomMapIndex]:levels[currentLevelIndex]).grid);
             spawnFireworksAtWorldPos(worldPos);
