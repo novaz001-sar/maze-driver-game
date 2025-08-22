@@ -214,12 +214,14 @@
         .modal-content {
             background-color: white;
             color: var(--text-color);
-            padding: 40px;
-            border-radius: 20px;
+            padding: 24px;
+            border-radius: 16px;
             border: 2px solid var(--primary-color);
             text-align: center;
-            width: 90%;
-            max-width: 500px;
+            width: 95vw;
+            max-width: 1000px;
+            max-height: 90vh;
+            overflow: auto;
             box-shadow: 0 0 25px rgba(0, 123, 255, 0.5);
         }
         
@@ -416,19 +418,15 @@
         }
         #editor-grid {
             display: grid;
-            grid-template-columns: repeat(17, 1fr);
-            grid-template-rows: repeat(17, 1fr);
-            width: 80vmin;
-            height: 80vmin;
-            max-width: 450px;
-            max-height: 450px;
-            margin: 0 auto 20px;
-            border: 2px solid var(--primary-color);
-            background-color: #e9ecef;
+            /* columns/rows will be set dynamically in JS according to editorSize */
+            width: min(90vmin, 900px);
+            height: min(90vmin, 900px);
+            margin: 8px auto 16px;
         }
         .editor-cell {
             border: 1px solid #dee2e6;
-            transition: background-color: 0.1s;
+            transition: background-color 0.1s;
+            min-width: 0; min-height: 0;
         }
 
         .editor-cell.lm1 { background: #fff3cd; border: 2px solid #ffc107; }
@@ -3397,10 +3395,9 @@ function createMaterials() {
             slotSelect.onchange = () => { initEditor(parseInt(slotSelect.value)); };
             const sizeInput = document.getElementById('editor-size-input');
             if (sizeInput) {
-                sizeInput.onchange = () => {
+                sizeInput.oninput = () => {
                     const v = Math.max(5, Math.min(30, parseInt(sizeInput.value)||15));
-                    editorSize = v;
-                    loadEditorGrid(parseInt(slotSelect.value));
+                    if (v !== editorSize) { editorSize = v; loadEditorGrid(parseInt(slotSelect.value)); }
                 };
             }
             loadEditorGrid(slotIndex);
@@ -3432,6 +3429,8 @@ function createMaterials() {
         function loadEditorGrid(slotIndex) {
             const grid = document.getElementById('editor-grid');
             grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${editorSize}, 1fr)`;
+            grid.style.gridTemplateRows = `repeat(${editorSize}, 1fr)`;
             editorGridData = [];
             editorStart = {};
             editorLandmarks = {};
