@@ -430,6 +430,13 @@
             border: 1px solid #dee2e6;
             transition: background-color: 0.1s;
         }
+
+        .editor-cell.lm1 { background: #fff3cd; border: 2px solid #ffc107; }
+        .editor-cell.lm2 { background: #e2f0d9; border: 2px solid #28a745; }
+        .editor-cell.lm3 { background: #d1ecf1; border: 2px solid #17a2b8; }
+        .editor-cell.lm4 { background: #f8d7da; border: 2px solid #dc3545; }
+        .editor-cell.lm5 { background: #ede7f6; border: 2px solid #6f42c1; }
+
         .editor-cell:hover {
             background-color: #ced4da;
         }
@@ -708,10 +715,17 @@
             <h2 data-lang-zh="地图编辑器" data-lang-en="Map Editor">地图编辑器</h2>
             <div id="editor-toolbar">
                 <select id="editor-slot-select"></select>
+                <label style="margin-left:8px;">尺寸</label>
+                <input id="editor-size-input" type="number" min="5" max="30" value="15" style="width:64px;" />
                 <button id="tool-wall" data-tool="wall" data-lang-zh="墙" data-lang-en="Wall">墙</button>
                 <button id="tool-path" data-tool="path" data-lang-zh="路" data-lang-en="Path">路</button>
                 <button id="tool-start" data-tool="start" data-lang-zh="起点" data-lang-en="Start">起点</button>
                 <button id="tool-goal" data-tool="goal" data-lang-zh="终点" data-lang-en="Goal">终点</button>
+                <button id="tool-lm1" data-tool="lm1" data-lang-zh="路标1" data-lang-en="LM1">路标1</button>
+                <button id="tool-lm2" data-tool="lm2" data-lang-zh="路标2" data-lang-en="LM2">路标2</button>
+                <button id="tool-lm3" data-tool="lm3" data-lang-zh="路标3" data-lang-en="LM3">路标3</button>
+                <button id="tool-lm4" data-tool="lm4" data-lang-zh="路标4" data-lang-en="LM4">路标4</button>
+                <button id="tool-lm5" data-tool="lm5" data-lang-zh="路标5" data-lang-en="LM5">路标5</button>
             </div>
             <div id="editor-grid"></div>
             <p id="editor-message" style="color: red; min-height: 1.2em;"></p>
@@ -808,6 +822,490 @@
     </script>
     <script type="module">
         import * as THREE from 'three';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
+
+
+        // ================= Landmark Hunt Helpers =================
+
+// === Remote dog asset (GLB) ===
+const DOG_GLTF_URL = "https://raw.githubusercontent.com/novaz001-sar/maze-driver-game/main/assets/fantasy_dog.glb";
+let __gltfLoader = null;
+function createNumberBadgeSprite(numberId=1){
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    const cx = 256, cy = 256, R = 210;
+    const grad = ctx.createRadialGradient(cx-40, cy-40, 40, cx, cy, R);
+    grad.addColorStop(0, '#fff8e1'); grad.addColorStop(0.5, '#ffe082'); grad.addColorStop(1, '#ffca28');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.closePath(); ctx.fill();
+    ctx.lineWidth = 18; ctx.strokeStyle = '#8d6e63'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R-26, 0, Math.PI*2); ctx.closePath();
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.stroke();
+    const shadowGrad = ctx.createRadialGradient(cx, cy+20, 30, cx, cy+20, R);
+    shadowGrad.addColorStop(0, 'rgba(0,0,0,0.12)'); shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadowGrad; ctx.beginPath(); ctx.arc(cx, cy, R-6, 0, Math.PI*2); ctx.closePath(); ctx.fill();
+    ctx.font = 'bold 270px "Trebuchet MS", "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 8;
+    ctx.fillStyle = '#1b1b1b'; ctx.fillText(String(numberId), cx, cy+6);
+    ctx.shadowColor = 'transparent'; ctx.lineWidth = 18; ctx.strokeStyle = '#ffffff'; ctx.strokeText(String(numberId), cx, cy+6);
+    const tex = new THREE.CanvasTexture(canvas); tex.needsUpdate = true;
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(1.2, 1.2, 1.2);
+    sprite.position.set(0, 2.35, 0.62);
+    sprite.name = 'numberBillboard';
+    return sprite;
+}
+
+async function loadPuppyFromURL(url, numberId=1){
+    try{
+        if(!__gltfLoader) __gltfLoader = new GLTFLoader();
+        const gltf = await new Promise((resolve, reject)=>{
+            __gltfLoader.load(url, resolve, undefined, reject);
+        });
+        const group = new THREE.Group();
+        const sceneNode = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+        if (sceneNode){
+            sceneNode.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
+            group.add(sceneNode);
+        }
+        const badge = createNumberBadgeSprite(numberId);
+        group.add(badge);
+        if (gltf.animations && gltf.animations.length){
+            const mixer = new THREE.AnimationMixer(sceneNode);
+            const clip = gltf.animations[0];
+            mixer.clipAction(clip).play();
+            group.userData.mixer = mixer;
+        }
+        group.userData.id = numberId;
+        return group;
+    }catch(err){
+        console.warn('GLB load failed, fallback to procedural dog:', err);
+        return createPuppyDog(numberId);
+    }
+}
+
+
+        // Enforce minimum spacing between landmarks: Euclidean distance >= 3 grid units
+        function enforceLandmarkSpacing(level) {
+            if (!level.landmarks || level.landmarks.length < 2) return level;
+            const grid = level.grid;
+            const H = grid.length, W = grid[0].length;
+            const isWalkable = (x,z) => z>=0 && z<H && x>=0 && x<W && grid[z][x] === 1;
+            const minD = 3.0;
+            // Iterate by increasing id; if too close to any previous, try to relocate current to nearest valid cell
+            for (let i = 0; i < level.landmarks.length; i++) {
+                const lm = level.landmarks[i];
+                let ok = true;
+                for (let j = 0; j < i; j++) {
+                    const p = level.landmarks[j];
+                    const d = Math.hypot(lm.x - p.x, lm.z - p.z);
+                    if (d < minD) { ok = false; break; }
+                }
+                if (!ok) {
+                    // BFS outward by rings to find nearest position satisfying spacing to all previous landmarks
+                    const q = [{x: lm.x, z: lm.z}];
+                    const seen = new Set([`${lm.x},${lm.z}`]);
+                    let found = null;
+                    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                    while (q.length) {
+                        const cur = q.shift();
+                        if (isWalkable(cur.x, cur.z)) {
+                            let spaceOK = true;
+                            for (let j = 0; j < i; j++) {
+                                const p = level.landmarks[j];
+                                const d = Math.hypot(cur.x - p.x, cur.z - p.z);
+                                if (d < minD) { spaceOK = false; break; }
+                            }
+                            if (spaceOK) { found = cur; break; }
+                        }
+                        for (const [dx,dz] of dirs) {
+                            const nx = cur.x + dx, nz = cur.z + dz;
+                            const key = `${nx},${nz}`;
+                            if (nx>=0 && nx<W && nz>=0 && nz<H && !seen.has(key)) {
+                                seen.add(key); q.push({x:nx, z:nz});
+                            }
+                        }
+                    }
+                    if (found) {
+                        lm.x = found.x; lm.z = found.z;
+                    }
+                }
+            }
+            return level;
+        }
+
+        let huntGroup = null;
+        let effectsGroup = null;
+        let currentHunt = { active: false, nextId: 1, total: 0, indexByKey: {}, objects: {} };
+
+        
+        
+        
+        function createPuppyDog(numberId = 1) {
+            const g = new THREE.Group();
+
+            // --- Materials (ultra-cute white) ---
+            const furWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.08 });
+            const earPink  = new THREE.MeshStandardMaterial({ color: 0xffc0cb, roughness: 0.6, metalness: 0.0 });
+            const noseBlack= new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.25, metalness: 0.0 });
+            const eyeGloss = new THREE.MeshPhysicalMaterial({ color: 0x111111, roughness: 0.05, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.03 });
+            const collarMat= new THREE.MeshStandardMaterial({ color: 0xaed4ff, metalness: 0.25, roughness: 0.35, emissive: 0x2c4a7a, emissiveIntensity: 0.06 });
+            const blushMat = new THREE.MeshStandardMaterial({ color: 0xff94b6, roughness: 0.85, metalness: 0.0 });
+            const padMat   = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5, metalness: 0.0 });
+            const toothMat = new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.2, metalness: 0.0 });
+            const tongueMat= new THREE.MeshStandardMaterial({ color: 0xff6b81, roughness: 0.7, metalness: 0.0 });
+
+            // --- Body ---
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.0, 2.5), furWhite);
+            body.position.y = 0.5;
+            body.geometry.computeVertexNormals();
+            g.add(body);
+
+            // Subtle rounding: add a small hemisphere rump to make the back rounder
+            const rump = new THREE.Mesh(new THREE.SphereGeometry(0.7, 24, 16), furWhite);
+            rump.position.set(0, 0.8, -0.7);
+            g.add(rump);
+
+            // --- Head (bigger) ---
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.85, 32, 22), furWhite);
+            head.position.set(0, 1.25, 0.85);
+            g.add(head);
+
+            // Muzzle / snout (slightly extruded)
+            const snoutBase = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 16), furWhite);
+            snoutBase.scale.set(1.15, 0.8, 1.2);
+            snoutBase.position.set(0, 1.02, 1.25);
+            g.add(snoutBase);
+
+            // Nose
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 18, 14), noseBlack);
+            nose.position.set(0, 1.05, 1.45);
+            g.add(nose);
+
+            // Mouth: tiny teeth + tongue
+            const toothL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.02), toothMat);
+            const toothR = toothL.clone();
+            toothL.position.set(-0.08, 0.92, 1.37);
+            toothR.position.set( 0.08, 0.92, 1.37);
+            const tongue = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.1, 6, 12), tongueMat);
+            tongue.position.set(0, 0.88, 1.38);
+            tongue.rotation.x = Math.PI*0.48;
+            g.add(toothL, toothR, tongue);
+
+            // Ears (outer + inner)
+            const earOuterL = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.58, 16), furWhite);
+            earOuterL.position.set(-0.44, 1.62, 0.52); earOuterL.rotation.z = 0.35;
+            const earOuterR = earOuterL.clone(); earOuterR.position.x *= -1; earOuterR.rotation.z = -0.35;
+            const earInnerL = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 14), earPink);
+            earInnerL.position.copy(earOuterL.position); earInnerL.rotation.copy(earOuterL.rotation);
+            const earInnerR = earInnerL.clone(); earInnerR.position.x *= -1; earInnerR.rotation.z = -0.35;
+            g.add(earOuterL, earOuterR, earInnerL, earInnerR);
+
+            // Eyes (larger & glossy) + brows
+            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.135, 18, 14), eyeGloss);
+            eyeL.position.set(-0.24, 1.32, 1.10);
+            const eyeR = eyeL.clone(); eyeR.position.x *= -1;
+            const browL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, 0.02), noseBlack);
+            browL.position.set(-0.26, 1.44, 1.0); browL.rotation.z = 0.12;
+            const browR = browL.clone(); browR.position.x *= -1; browR.rotation.z = -0.12;
+            g.add(eyeL, eyeR, browL, browR);
+
+            // Whiskers (thin cylinders)
+            for (let side of [-1, 1]) {
+                for (let k = -1; k <= 1; k++) {
+                    const whisk = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.5, 6), noseBlack);
+                    whisk.position.set(0.13 * side, 1.03 + k*0.06, 1.34);
+                    whisk.rotation.z = side * 1.25;
+                    g.add(whisk);
+                }
+            }
+
+            // Blush
+            const blushL = new THREE.Mesh(new THREE.CircleGeometry(0.13, 18), blushMat);
+            blushL.position.set(-0.33, 1.08, 1.2); blushL.rotation.x = -Math.PI/2;
+            const blushR = blushL.clone(); blushR.position.x *= -1;
+            g.add(blushL, blushR);
+
+            // Tail (curled, two torus segments)
+            const tail1 = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.075, 12, 28, Math.PI*1.1), furWhite);
+            tail1.position.set(0, 0.95, -0.55);
+            tail1.rotation.set(Math.PI/2, 0, Math.PI/5);
+            const tail2 = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 12, 28, Math.PI*1.0), furWhite);
+            tail2.position.set(0.15, 1.08, -0.4);
+            tail2.rotation.set(Math.PI/2, 0.2, Math.PI/3);
+            g.add(tail1, tail2);
+
+            // Legs with tiny paw pads (four toes)
+            const legPos = [[-0.56,-0.9],[0.56,-0.9],[-0.56,0.9],[0.56,0.9]];
+            legPos.forEach(([dx, dz]) => {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 16), furWhite);
+                leg.position.set(dx, 0.325, dz);
+                g.add(leg);
+                const pad = new THREE.Mesh(new THREE.CircleGeometry(0.12, 14), padMat);
+                pad.rotation.x = -Math.PI/2;
+                pad.position.set(dx, 0.0, dz);
+                g.add(pad);
+                for (let i=0;i<4;i++) {
+                    const toe = new THREE.Mesh(new THREE.CircleGeometry(0.04, 10), padMat);
+                    toe.rotation.x = -Math.PI/2;
+                    const angle = (-0.18 + i*0.12);
+                    toe.position.set(dx + Math.sin(angle)*0.12, 0.005, dz + Math.cos(angle)*0.12);
+                    g.add(toe);
+                }
+            });
+
+            // Collar + small tag
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 14, 28), collarMat);
+            collar.rotation.x = Math.PI/2;
+            collar.position.set(0, 0.96, 0.72);
+            const tag = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), new THREE.MeshStandardMaterial({ color: 0xffd54f, metalness: 0.6, roughness: 0.3, emissive: 0x7a5c00, emissiveIntensity: 0.1 }));
+            tag.position.set(0, 0.86, 0.96);
+            g.add(collar, tag);
+
+            // --- Premium number medallion (canvas) ---
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Background: circular medallion with radial gradient
+            const cx = 256, cy = 256, R = 210;
+            const grad = ctx.createRadialGradient(cx-40, cy-40, 40, cx, cy, R);
+            grad.addColorStop(0, '#fff8e1');
+            grad.addColorStop(0.5, '#ffe082');
+            grad.addColorStop(1, '#ffca28');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.closePath(); ctx.fill();
+
+            // Outer stroke + inner bevel ring
+            ctx.lineWidth = 18; ctx.strokeStyle = '#8d6e63'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, R-26, 0, Math.PI*2); ctx.closePath();
+            ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.stroke();
+
+            // Subtle inner shadow
+            const shadowGrad = ctx.createRadialGradient(cx, cy+20, 30, cx, cy+20, R);
+            shadowGrad.addColorStop(0, 'rgba(0,0,0,0.12)');
+            shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = shadowGrad;
+            ctx.beginPath(); ctx.arc(cx, cy, R-6, 0, Math.PI*2); ctx.closePath(); ctx.fill();
+
+            // Number with drop shadow & stroke
+            ctx.font = 'bold 270px "Trebuchet MS", "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 8;
+            ctx.fillStyle = '#1b1b1b'; ctx.fillText(String(numberId), cx, cy+6);
+            ctx.shadowColor = 'transparent';
+            ctx.lineWidth = 18; ctx.strokeStyle = '#ffffff'; ctx.strokeText(String(numberId), cx, cy+6);
+
+            // Sparkles
+            function star(ctx, x, y, r1, r2, n){
+                ctx.beginPath();
+                let rot = -Math.PI/2;
+                const step = Math.PI/n;
+                for(let i=0;i<n;i++){
+                    ctx.lineTo(x + Math.cos(rot)*r1, y + Math.sin(rot)*r1); rot += step;
+                    ctx.lineTo(x + Math.cos(rot)*r2, y + Math.sin(rot)*r2); rot += step;
+                }
+                ctx.closePath();
+            }
+            ctx.fillStyle = '#fffde7';
+            ctx.strokeStyle = '#ffe082';
+            [[80,90,12,5,5],[430,120,10,4,5],[420,380,14,6,5]].forEach(([x,y,r1,r2,n])=>{
+                star(ctx,x,y,r1,r2,n); ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+            });
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(1.2, 1.2, 1.2);
+            sprite.position.set(0, 2.35, 0.62);
+            sprite.name = 'numberBillboard';
+            g.add(sprite);
+
+            // Gentle idle tilt
+            g.userData.id = numberId;
+            return g;
+        }
+
+    
+function replaceNumberWithGoldStar(obj3d) {
+            const old = obj3d.getObjectByName('numberBillboard');
+            if (old) obj3d.remove(old);
+            const shape = new THREE.Shape();
+            const spikes = 5, outerR = 0.6, innerR = 0.28;
+            let rot = Math.PI / 2 * 3, x = 0, y = 0, step = Math.PI / spikes;
+            shape.moveTo(0, -outerR);
+            for (let i = 0; i < spikes; i++) {
+                x = Math.cos(rot) * outerR; y = Math.sin(rot) * outerR; shape.lineTo(x, y); rot += step;
+                x = Math.cos(rot) * innerR; y = Math.sin(rot) * innerR; shape.lineTo(x, y); rot += step;
+            }
+            shape.lineTo(0, -outerR);
+            const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 });
+            const mat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2, emissive: 0x8b7500, emissiveIntensity: 0.2 });
+            const star = new THREE.Mesh(geo, mat);
+            star.position.set(0, 2.4, 0.62);
+            star.scale.set(1.0,1.0,0.22);
+            star.rotation.y = Math.PI/8;
+            obj3d.add(star);
+        }
+
+        function spawnFireworksAtWorldPos(worldPos) {
+            if (!effectsGroup) { effectsGroup = new THREE.Group(); scene.add(effectsGroup); }
+            const pCount = 180;
+            const positions = new Float32Array(pCount * 3);
+            const velocities = new Float32Array(pCount * 3);
+            const colors = new Float32Array(pCount * 3);
+            for (let i = 0; i < pCount; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2*Math.random()-1);
+                const speed = 2 + Math.random() * 4;
+                const vx = Math.sin(phi)*Math.cos(theta)*speed;
+                const vy = Math.cos(phi)*speed;
+                const vz = Math.sin(phi)*Math.sin(theta)*speed;
+                velocities[i*3+0] = vx;
+                velocities[i*3+1] = Math.abs(vy);
+                velocities[i*3+2] = vz;
+                positions[i*3+0] = worldPos.x + (Math.random()-0.5)*1.0;
+                positions[i*3+1] = 0.5 + Math.random()*0.5;
+                positions[i*3+2] = worldPos.z + (Math.random()-0.5)*1.0;
+                const c = new THREE.Color().setHSL(Math.random(), 0.9, 0.6);
+                colors[i*3+0] = c.r; colors[i*3+1] = c.g; colors[i*3+2] = c.b;
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+            const mat = new THREE.PointsMaterial({ size: 0.15, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending });
+            const points = new THREE.Points(geo, mat);
+            points.userData = { ttl: 5.0 }; // seconds
+            effectsGroup.add(points);
+        }
+
+        function updateEffects(delta) {
+            if (!effectsGroup) return;
+            for (let i = effectsGroup.children.length - 1; i >= 0; i--) {
+                const p = effectsGroup.children[i];
+                const attrPos = p.geometry.getAttribute('position');
+                const attrVel = p.geometry.getAttribute('velocity');
+                const positions = attrPos.array;
+                const velocities = attrVel.array;
+                const len = velocities.length / 3;
+                for (let j = 0; j < len; j++) {
+                    velocities[j*3+1] -= 9.8 * 0.6 * delta; // gravity
+                    positions[j*3+0] += velocities[j*3+0] * delta;
+                    positions[j*3+1] += velocities[j*3+1] * delta;
+                    positions[j*3+2] += velocities[j*3+2] * delta;
+                }
+                attrPos.needsUpdate = true;
+                p.userData.ttl -= delta;
+                p.material.opacity = Math.max(0, Math.min(1, p.userData.ttl / 5.0));
+                if (p.userData.ttl <= 0) {
+                    effectsGroup.remove(p);
+                }
+            }
+        }
+
+        function createHuntObjects(level) {
+            if (huntGroup) {
+                huntGroup.traverse(o=>{ if (o.userData && o.userData.mixer) o.userData.mixer.update(delta); }); scene.remove(huntGroup); huntGroup = null; }
+            huntGroup = new THREE.Group();
+            scene.add(huntGroup);
+            currentHunt = { active: true, nextId: 1, total: level.landmarks.length, indexByKey: {}, objects: {} };
+
+            for (const lm of level.landmarks) {
+                const worldPos = gridToWorld(lm.x, lm.z, level.grid);
+                loadPuppyFromURL(DOG_GLTF_URL, lm.id).then(dog=>{
+                    dog.position.set(worldPos.x, 0, worldPos.z);
+                    huntGroup.add(dog);
+                    currentHunt.objects[lm.id] = dog;
+                });
+                currentHunt.indexByKey[`${lm.x},${lm.z}`] = lm.id;
+            }
+        }
+
+        function computeHuntOptimal(level) {
+            // sum of shortest path segments: S->1->2->...->N
+            if (!level.landmarks || !level.landmarks.length) return null;
+            let from = {x: level.start.x, z: level.start.z};
+            let total = 0;
+            for (const lm of level.landmarks) {
+                const d = findShortestDist(level.grid, from, {x: lm.x, z: lm.z});
+                if (d == null) return null;
+                total += d;
+                from = {x: lm.x, z: lm.z};
+            }
+            return total;
+        }
+
+        function findShortestDist(grid, from, to) {
+            const H = grid.length, W = grid[0].length;
+            const q = [{x: from.x, z: from.z, d: 0}];
+            const vis = new Set([`${from.x},${from.z}`]);
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+            while (q.length) {
+                const cur = q.shift();
+                if (cur.x === to.x && cur.z === to.z) return cur.d;
+                for (const [dx,dz] of dirs) {
+                    const nx = cur.x + dx, nz = cur.z + dz;
+                    if (nz>=0 && nz<H && nx>=0 && nx<W && grid[nz][nx] === 1) {
+                        const key = `${nx},${nz}`;
+                        if (!vis.has(key)) {
+                            vis.add(key);
+                            q.push({x:nx, z:nz, d: cur.d+1});
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function handleHuntCollect(gridPos) {
+            if (!currentHunt.active) return;
+            const key = `${gridPos.x},${gridPos.z}`;
+            const hitId = currentHunt.indexByKey[key];
+            if (!hitId) return;
+            if (hitId !== currentHunt.nextId) {
+                (function(){ 
+                const t = translations[currentLanguage] && translations[currentLanguage].hunt_wrong_order;
+                let msg = '';
+                if (typeof t === 'function') { msg = t(currentHunt.nextId); }
+                else if (typeof t === 'string') { msg = t.replace('${need}', String(currentHunt.nextId)).replace('{need}', String(currentHunt.nextId)); }
+                else { msg = '请先找到正确编号的路标 / Find the correct landmark first.'; }
+                showTemporaryMessage(msg); 
+            })();
+                return;
+            }
+            // collect
+            const dog = currentHunt.objects[hitId];
+            replaceNumberWithGoldStar(dog);
+            // mark for float-up animation
+            dog.userData.collected = true;
+            dog.userData.floatYTarget = (dog.position.y || 0) + 2.4;
+            dog.userData.floatSpeed = 0.9; // units per second
+            const worldPos = gridToWorld(gridPos.x, gridPos.z, (currentLevelIndex===-1?customLevels[selectedCustomMapIndex]:levels[currentLevelIndex]).grid);
+            spawnFireworksAtWorldPos(worldPos);
+            currentHunt.nextId++;
+            (function(){ 
+                const t = translations[currentLanguage] && translations[currentLanguage].hunt_collected;
+                let msg = '';
+                if (typeof t === 'function') { msg = t(currentHunt.nextId-1, currentHunt.total); }
+                else if (typeof t === 'string') { 
+                    msg = t.replace('${n}', String(currentHunt.nextId-1)).replace('{n}', String(currentHunt.nextId-1))
+                           .replace('${total}', String(currentHunt.total)).replace('{total}', String(currentHunt.total));
+                } else { msg = `已收集路标 ${currentHunt.nextId-1}/${currentHunt.total}`; }
+                showTemporaryMessage(msg, 2000); 
+            })();
+            if (currentHunt.nextId > currentHunt.total) {
+                // all collected
+                (function(){ 
+                const t = translations[currentLanguage] && translations[currentLanguage].hunt_all_done;
+                const msg = (typeof t === 'string') ? t : '全部路标收集完成！';
+                showTemporaryMessage(msg, 2500); 
+            })();
+            }
+        }
 
         // ====================================================================
         // 全局变量和状态机 (Global Variables & State Machine)
@@ -1041,6 +1539,149 @@ const INTRO_MAZES = [
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,'S',0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0,1],[1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],[1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,1,0,0,0,1,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1],[1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1],[1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,1,'E',0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
         ];
         
+        
+// ================= Landmark Hunt Levels (10 maps, sizes 5x5..10x10, incremental complexity) =================
+
+const HUNT_MAZES = [
+    // H1: 5x5, 2 landmarks (guaranteed path S->1->2->E)
+    [[1,1,1,1,1],
+     [1,'S',0,'1',1],
+     [1,0,0,0,1],
+     [1,0,'2','E',1],
+     [1,1,1,1,1]],
+
+    // H2: 6x6, 3 landmarks
+    [[1,1,1,1,1,1],
+     [1,'S',0,0,'1',1],
+     [1,0,1,0,0,1],
+     [1,0,1,0,'2',1],
+     [1,0,0,0,'3','E'],
+     [1,1,1,1,1,1]],
+
+    // H3: 6x6, 3 landmarks
+    [[1,1,1,1,1,1],
+     [1,'S',0,0,0,1],
+     [1,0,1,1,0,1],
+     [1,'1',0,1,0,1],
+     [1,'2',0,0,'3','E'],
+     [1,1,1,1,1,1]],
+
+    // H4: 7x7, 3 landmarks
+    [[1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,1],
+     [1,0,1,1,1,0,1],
+     [1,'1',0,0,1,0,1],
+     [1,0,1,0,1,'2',1],
+     [1,0,0,0,0,'3','E'],
+     [1,1,1,1,1,1,1]],
+
+    // H5: 7x7, 4 landmarks
+    [[1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,1],
+     [1,0,1,1,1,0,1],
+     [1,'1',0,0,1,0,1],
+     [1,0,1,0,1,'2',1],
+     [1,0,'3',0,0,'4','E'],
+     [1,1,1,1,1,1,1]],
+
+    // H6: 8x8, 4 landmarks
+    [[1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,0,1],
+     [1,0,1,1,1,1,0,1],
+     [1,'1',0,0,0,1,0,1],
+     [1,0,1,1,0,1,'2',1],
+     [1,0,0,1,0,0,'3','E'],
+     [1,0,0,0,1,0,'4',1],
+     [1,1,1,1,1,1,1,1]],
+
+    // H7: 8x8, 5 landmarks
+    [[1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,0,1],
+     [1,0,1,1,1,1,0,1],
+     [1,'1',0,0,0,1,0,1],
+     [1,0,1,1,0,1,'2',1],
+     [1,0,0,1,0,0,'3','E'],
+     [1,0,0,0,1,'4','5',1],
+     [1,1,1,1,1,1,1,1]],
+
+    // H8: 9x9, 5 landmarks
+    [[1,1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,1,0,1],
+     [1,0,1,1,0,1,1,0,1],
+     [1,'1',0,1,0,0,0,0,1],
+     [1,0,0,1,1,1,1,'2',1],
+     [1,0,1,0,0,0,1,'3',1],
+     [1,0,1,1,1,0,1,'4',1],
+     [1,0,0,0,1,0,0,'5','E'],
+     [1,1,1,1,1,1,1,1,1]],
+
+    // H9: 10x10, 5 landmarks (simplified connectivity)
+    [[1,1,1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,0,0,0,0,1],
+     [1,0,1,1,1,1,1,1,0,1],
+     [1,'1',0,0,0,0,0,1,0,1],
+     [1,0,1,1,1,1,0,1,0,1],
+     [1,0,0,1,0,0,0,1,'2',1],
+     [1,0,0,1,1,1,0,1,'3','E'],
+     [1,0,0,0,0,1,0,1,'4',1],
+     [1,0,1,1,0,0,0,0,'5',1],
+     [1,1,1,1,1,1,1,1,1,1]],
+
+    // H10: 10x10, 5 landmarks
+    [[1,1,1,1,1,1,1,1,1,1],
+     [1,'S',0,0,0,1,0,0,0,1],
+     [1,0,1,1,0,1,0,1,0,1],
+     [1,'1',0,1,0,1,0,1,0,1],
+     [1,0,0,1,0,0,0,1,'2',1],
+     [1,0,1,1,1,1,0,1,'3',1],
+     [1,0,0,0,0,1,0,1,'4','E'],
+     [1,0,1,1,0,1,0,0,0,1],
+     [1,0,0,1,0,0,0,1,'5',1],
+     [1,1,1,1,1,1,1,1,1,1]]
+];
+
+
+function buildHuntLevels(huntMazes) {
+    const huntLevels = [];
+    for (let idx = 0; idx < huntMazes.length; idx++) {
+        const mazeData = huntMazes[idx];
+        const grid = [];
+        let start = {}, goal = {};
+        const landmarks = [];
+        const H = mazeData.length, W = mazeData[0].length;
+        for (let z = 0; z < H; z++) {
+            const row = [];
+            for (let x = 0; x < W; x++) {
+                const cell = mazeData[z][x];
+                if (cell === 'S') {
+                    start = { x, z, dir: 'S' };
+                    row.push(1);
+                } else if (cell === 'E') {
+                    goal = { x, z };
+                    row.push(1);
+                } else if (typeof cell === 'string' && /^[1-5]$/.test(cell)) {
+                    const id = parseInt(cell, 10);
+                    landmarks.push({ x, z, id });
+                    row.push(1);
+                } else {
+                    row.push(cell === 1 ? 0 : 1);
+                }
+            }
+            grid.push(row);
+        }
+        // orient start
+        if (start.x === 0) start.dir = 'E';
+        else if (start.x === W - 1) start.dir = 'W';
+        else if (start.z === 0) start.dir = 'S';
+        else if (start.z === H - 1) start.dir = 'N';
+        landmarks.sort((a, b) => a.id - b.id);
+        let level = { grid, start, goal, landmarks, hunt: true };
+        level = enforceLandmarkSpacing(level);
+        huntLevels.push(level);
+    }
+    return huntLevels;
+}
+
         const levels = MAZE_DATA.map(mazeData => {
             const grid = [];
             let start = {};
@@ -1073,6 +1714,14 @@ const INTRO_MAZES = [
             return { grid, start, goal };
         });
 
+        // Append Landmark Hunt levels to levels and record index range
+        const __baseCount = levels.length;
+        const __huntLevels = buildHuntLevels(HUNT_MAZES);
+        window.__huntStartIndex = __baseCount;
+        __huntLevels.forEach(lv => levels.push(lv));
+        window.__huntEndIndex = levels.length; // exclusive
+
+
         // ====================================================================
         // 初始化函数 (Initialization)
         // ====================================================================
@@ -1098,7 +1747,7 @@ const INTRO_MAZES = [
     },
     undefined,
     function (err) {
-      console.warn('Failed to load sky texture', err);
+      console.info('Sky texture not loaded (fallback to solid color).', err);
       // 如果加载失败，可设置备用颜色或简易渐变
       if (typeof renderer !== 'undefined' && renderer.setClearColor) {
         renderer.setClearColor(0x0a152b, 1); // 备用深色天空
@@ -1206,6 +1855,7 @@ const INTRO_MAZES = [
             setupMenuInfo('free-mode-btn', 'main-menu-info-box', 'desc_free');
             setupMenuInfo('custom-mode-btn', 'main-menu-info-box', 'desc_custom');
             setupMenuInfo('editor-mode-btn', 'main-menu-info-box', 'desc_editor');
+            
             setupMenuInfo('mode-select-minimap-btn', 'nav-mode-info-box', 'desc_minimap');
             setupMenuInfo('mode-select-challenge-btn', 'nav-mode-info-box', 'desc_challenge');
 
@@ -1223,6 +1873,7 @@ const INTRO_MAZES = [
             });
             
             document.getElementById('editor-mode-btn').addEventListener('click', () => showEditor());
+            
             
             document.getElementById('custom-mode-btn').addEventListener('click', () => {
                 if (customLevels.some(level => level !== null)) {
@@ -1243,6 +1894,13 @@ const INTRO_MAZES = [
                 } else if (gameMode === 'campaign') {
                     document.getElementById('dev-panel').style.display = 'none';
                     loadLevel(0);
+                } else if (gameMode === 'hunt') {
+                    document.getElementById('dev-panel').style.display = 'none';
+                    if (typeof window.__huntStartIndex === 'number') {
+                        loadLevel(window.__huntStartIndex);
+                    } else {
+                        loadLevel(levels.length - 1); // fallback
+                    }
                 }
             }
 
@@ -1404,19 +2062,29 @@ const INTRO_MAZES = [
 
             while(mazeGroup.children.length > 0){ mazeGroup.remove(mazeGroup.children[0]); }
             while(landmarksGroup.children.length > 0){ camera.remove(landmarksGroup); landmarksGroup = new THREE.Group(); camera.add(landmarksGroup); }
+            if (huntGroup) {
+                huntGroup.traverse(o=>{ if (o.userData && o.userData.mixer) o.userData.mixer.update(delta); }); scene.remove(huntGroup); huntGroup = null; }
+            if (effectsGroup) { scene.remove(effectsGroup); effectsGroup = null; }
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
             if(goalMarker) scene.remove(goalMarker);
 
             createMazeMesh(level.grid, level.goal);
             placeRoadsideObjects(level.grid);
             createGoalMarker(level.goal);
+            if (level.landmarks && level.landmarks.length) { createHuntObjects(level); }
             
             const startPos = gridToWorld(level.start.x, level.start.z, level.grid);
             player.position.set(startPos.x, 0, startPos.z);
             player.rotation.y = dirToAngle(level.start.dir);
             targetRotation.y = player.rotation.y;
 
-            const pathInfo = findShortestPath(level);
+            let pathInfo;
+            if (level.landmarks && level.landmarks.length) {
+                const opt = computeHuntOptimal(level);
+                pathInfo = opt != null ? {choices: opt} : findShortestPath(level);
+            } else {
+                pathInfo = findShortestPath(level);
+            }
             // 同步开发者面板选择状态（自由模式）
             const dev = document.getElementById('level-select');
             if (dev && getComputedStyle(document.getElementById('dev-panel')).display === 'block' && currentLevelIndex >= 0) {
@@ -1495,9 +2163,11 @@ const INTRO_MAZES = [
             const { goal } = level;
 
             if (gridPos.x === goal.x && gridPos.z === goal.z) {
-                gameState = 'LEVEL_COMPLETE';
-                showLevelComplete();
-                return;
+                if (!level.landmarks || !level.landmarks.length || (currentHunt.active && currentHunt.nextId > currentHunt.total)) {
+                    gameState = 'LEVEL_COMPLETE';
+                    showLevelComplete();
+                    return;
+                }
             }
             
             const availableTurns = createDirectionalHelpers();
@@ -1573,7 +2243,7 @@ const INTRO_MAZES = [
             const nextGridX = gridPos.x + Math.round(moveVector.x);
             const nextGridZ = gridPos.z + Math.round(moveVector.z);
 
-            if (nextGridX === level.goal.x && nextGridZ === level.goal.z) {
+            if ((!level.landmarks || !level.landmarks.length) && nextGridX === level.goal.x && nextGridZ === level.goal.z) {
                 showTemporaryMessage(translations[currentLanguage].prompt_near_goal, 2500);
             }
 
@@ -1631,7 +2301,7 @@ const INTRO_MAZES = [
                 medalEl.style.display = 'block';
                 quoteEl.style.display = 'block';
 
-                if (currentLevelIndex !== -1 && currentLevelIndex < levels.length - 1) {
+                if (currentLevelIndex !== -1 && ((gameMode === 'hunt' && currentLevelIndex < window.__huntEndIndex - 1) || (gameMode !== 'hunt' && currentLevelIndex < levels.length - 1))) {
                     nextBtn.textContent = lang.nextLevel;
                     nextBtn.style.display = 'inline-block';
                 }
@@ -1740,6 +2410,22 @@ const INTRO_MAZES = [
                 }
             }
             
+            if (huntGroup) {
+                huntGroup.traverse(o=>{ if (o.userData && o.userData.mixer) o.userData.mixer.update(delta); });
+                huntGroup.children.forEach(d => {
+                    const idle = Math.sin(elapsedTime*1.8 + (d.userData.id||0))*0.05;
+                    if (d.userData.collected) {
+                        const target = d.userData.floatYTarget || 1.2;
+                        const spd = d.userData.floatSpeed || 0.8;
+                        d.position.y = Math.min(target, (d.position.y||0) + spd*delta);
+                        d.rotation.y += delta*0.8; // slightly faster spin when collected
+                    } else {
+                        d.position.y = idle;
+                    }
+                });
+            }
+            updateEffects(delta);
+
             if (steeringWheel) {
                 steeringWheel.rotation.z = (player.rotation.y - targetRotation.y) * 2;
             }
@@ -2362,7 +3048,9 @@ function createMaterials() {
 
         let lastPlayerGridPos = { x: -1, z: -1 };
 
-        function drawMinimapBackground(grid, start, goal) {
+        function drawMinimapBackground(level) {
+            if (!level) return;
+            const { grid, start, goal } = level;
             const canvas = minimap;
             canvas.width = 500;
             canvas.height = 500;
@@ -2394,6 +3082,48 @@ function createMaterials() {
             ctx.fillRect(start.x * cellWidth, start.z * cellHeight, cellWidth, cellHeight);
             ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--goal-color');
             ctx.fillRect(goal.x * cellWidth, goal.z * cellHeight, cellWidth, cellHeight);
+            // Draw landmarks (numbers / collected as stars)
+            if (level.landmarks && level.landmarks.length) {
+                for (const lm of level.landmarks) {
+                    const xPos = lm.x * cellWidth + cellWidth*0.5;
+                    const yPos = lm.z * cellHeight + cellHeight*0.5;
+                    ctx.save();
+                    ctx.translate(xPos, yPos);
+                    const r = Math.min(cellWidth, cellHeight) * 0.35;
+                    const id = lm.id;
+                    const collected = currentHunt && currentHunt.nextId && (id < currentHunt.nextId);
+                    if (collected) {
+                        // draw star
+                        ctx.beginPath();
+                        const spikes = 5, outerR = r, innerR = r*0.45;
+                        let rot = Math.PI/2 * 3;
+                        ctx.moveTo(0, -outerR);
+                        for (let i=0;i<spikes;i++){ ctx.lineTo(Math.cos(rot)*outerR, Math.sin(rot)*outerR); rot+=Math.PI/spikes; ctx.lineTo(Math.cos(rot)*innerR, Math.sin(rot)*innerR); rot+=Math.PI/spikes; }
+                        ctx.lineTo(0, -outerR);
+                        ctx.closePath();
+                        ctx.fillStyle = '#ffd700';
+                        ctx.fill();
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = '#b8860b';
+                        ctx.stroke();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0,0,r,0,Math.PI*2);
+                        ctx.fillStyle = '#ffc107';
+                        ctx.fill();
+                        ctx.lineWidth = 3;
+                        ctx.strokeStyle = '#8a6d3b';
+                        ctx.stroke();
+                        ctx.fillStyle = '#000';
+                        ctx.font = 'bold 18px sans-serif';
+                        ctx.font = 'bold 18px sans-serif';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText(String(id), 0, 1);
+                    }
+                    ctx.restore();
+                }
+            }
+
         }
 
         function updateMinimapPlayer() {
@@ -2402,7 +3132,11 @@ function createMaterials() {
             const { grid, start, goal } = level;
             const gridPos = worldToGrid(player.position);
             lastPlayerGridPos = { ...gridPos };
-            drawMinimapBackground(grid, start, goal);
+            // Hunt: trigger collection when player enters a landmark cell
+            if (level.landmarks && level.landmarks.length) {
+                handleHuntCollect(gridPos);
+            }
+            drawMinimapBackground(level);
             const ctx = minimapCtx;
             const gridWidth = grid[0].length;
             const gridHeight = grid.length;
@@ -2617,12 +3351,14 @@ function createMaterials() {
         // ====================================================================
         
         let editorGridData = [];
+        let editorLandmarks = {}; // {1:{x,z}, 2:{x,z}, ...}
+
         let editorStart = {};
         let editorGoal = {};
         let currentTool = 'wall';
         let isDrawing = false;
         let selectedCustomMapIndex = 0;
-        const EDITOR_SIZE = 17;
+        const DEFAULT_editorSize = 17;
         const MAX_CUSTOM_LEVELS = 15;
 
         function loadCustomLevels() {
@@ -2645,6 +3381,7 @@ function createMaterials() {
             initEditor(slotIndex);
         }
 
+        let editorSize = typeof DEFAULT_editorSize !== 'undefined' ? DEFAULT_editorSize : 15;
         function initEditor(slotIndex) {
             const grid = document.getElementById('editor-grid');
             const slotSelect = document.getElementById('editor-slot-select');
@@ -2657,9 +3394,15 @@ function createMaterials() {
                 slotSelect.appendChild(option);
             }
             slotSelect.value = slotIndex;
-            slotSelect.onchange = () => {
-                initEditor(parseInt(slotSelect.value));
-            };
+            slotSelect.onchange = () => { initEditor(parseInt(slotSelect.value)); };
+            const sizeInput = document.getElementById('editor-size-input');
+            if (sizeInput) {
+                sizeInput.onchange = () => {
+                    const v = Math.max(5, Math.min(30, parseInt(sizeInput.value)||15));
+                    editorSize = v;
+                    loadEditorGrid(parseInt(slotSelect.value));
+                };
+            }
             loadEditorGrid(slotIndex);
             grid.onmousedown = (e) => {
                 isDrawing = true;
@@ -2676,6 +3419,8 @@ function createMaterials() {
                 }
             };
             document.getElementById('tool-wall').classList.add('selected');
+
+
             document.getElementById('editor-save-btn').onclick = saveCustomMap;
             document.getElementById('editor-delete-btn').onclick = deleteCustomMap;
             document.getElementById('editor-back-btn').onclick = () => {
@@ -2689,18 +3434,24 @@ function createMaterials() {
             grid.innerHTML = '';
             editorGridData = [];
             editorStart = {};
+            editorLandmarks = {};
             editorGoal = {};
             const levelToLoad = customLevels[slotIndex];
-            for (let z = 0; z < EDITOR_SIZE; z++) {
+            if (levelToLoad && levelToLoad.grid) {
+                editorSize = levelToLoad.grid.length;
+                const sizeInput = document.getElementById('editor-size-input');
+                if (sizeInput) sizeInput.value = editorSize;
+            }
+            for (let z = 0; z < editorSize; z++) {
                 const row = [];
-                for (let x = 0; x < EDITOR_SIZE; x++) {
+                for (let x = 0; x < editorSize; x++) {
                     let cellType = 0;
                     if (levelToLoad) {
                         cellType = levelToLoad.grid[z][x] === 0 ? 1 : 0;
                         if (levelToLoad.start.x === x && levelToLoad.start.z === z) editorStart = {x, z};
                         if (levelToLoad.goal.x === x && levelToLoad.goal.z === z) editorGoal = {x, z};
                     } else {
-                        const isBorder = x === 0 || x === EDITOR_SIZE - 1 || z === 0 || z === EDITOR_SIZE - 1;
+                        const isBorder = x === 0 || x === editorSize - 1 || z === 0 || z === editorSize - 1;
                         if (isBorder) cellType = 1;
                     }
                     row.push(cellType);
@@ -2715,7 +3466,19 @@ function createMaterials() {
                 }
                 editorGridData.push(row);
             }
-        }
+        
+            // Paint landmarks if any (after grid built)
+            if (levelToLoad && levelToLoad.landmarks && levelToLoad.landmarks.length) {
+                levelToLoad.landmarks.forEach(lm => {
+                    editorLandmarks[lm.id] = {x: lm.x, z: lm.z};
+                    const idx = lm.z * editorSize + lm.x;
+                    const cellEl = document.getElementById('editor-grid').children[idx];
+                    if (cellEl) {
+                        cellEl.className = 'editor-cell lm' + lm.id;
+                    }
+                });
+            }
+}
         
         function handleGridInteraction(e) {
             if (!isDrawing || e.buttons !== 1) return;
@@ -2727,11 +3490,11 @@ function createMaterials() {
             if (editorStart.x === x && editorStart.z === z) editorStart = {};
             if (editorGoal.x === x && editorGoal.z === z) editorGoal = {};
             if (currentTool === 'start' && editorStart.x !== undefined) {
-                 grid.children[editorStart.z * EDITOR_SIZE + editorStart.x].className = 'editor-cell path';
+                 grid.children[editorStart.z * editorSize + editorStart.x].className = 'editor-cell path';
                  editorGridData[editorStart.z][editorStart.x] = 0;
             }
             if (currentTool === 'goal' && editorGoal.x !== undefined) {
-                 grid.children[editorGoal.z * EDITOR_SIZE + editorGoal.x].className = 'editor-cell path';
+                 grid.children[editorGoal.z * editorSize + editorGoal.x].className = 'editor-cell path';
                  editorGridData[editorGoal.z][editorGoal.x] = 0;
             }
             switch (currentTool) {
@@ -2755,6 +3518,23 @@ function createMaterials() {
                     cell.className = 'editor-cell goal';
                     isDrawing = false;
                     break;
+                case 'lm1':
+                case 'lm2':
+                case 'lm3':
+                case 'lm4':
+                case 'lm5':
+                    editorGridData[z][x] = 1; // ensure walkable
+                    const lmId = parseInt(currentTool.replace('lm',''));
+                    // clear previous of this id
+                    if (editorLandmarks[lmId]) {
+                        const prev = editorLandmarks[lmId];
+                        const prevEl = document.getElementById('editor-grid').children[prev.z * editorSize + prev.x];
+                        if (prevEl) prevEl.className = 'editor-cell path';
+                    }
+                    editorLandmarks[lmId] = {x, z};
+                    cell.className = 'editor-cell lm' + lmId;
+                    isDrawing = false;
+                    break;
             }
         }
         
@@ -2776,15 +3556,32 @@ function createMaterials() {
                 messageEl.textContent = translations[currentLanguage].editor_unsolvable;
                 return;
             }
+            
+            // Landmarks collection (if 2..5 present consecutively -> treat as hunt)
+            const lmKeys = Object.keys(editorLandmarks).map(k => parseInt(k,10)).sort((a,b)=>a-b);
+            let lmArr = [];
+            if (lmKeys.length >= 2) {
+                // ensure consecutive from 1..N with no gaps
+                let ok = true;
+                for (let i=0;i<lmKeys.length;i++){
+                    if (lmKeys[i] !== i+1) { ok = false; break; }
+                }
+                if (ok) {
+                    lmArr = lmKeys.map(id => ({x: editorLandmarks[id].x, z: editorLandmarks[id].z, id}));
+                }
+            }
+
             const newLevel = {
                 grid: mazeDataForSolver,
                 start: { ...editorStart, dir: 'S' },
-                goal: { ...editorGoal }
+                goal: { ...editorGoal },
+                landmarks: lmArr,
+                hunt: lmArr.length >= 2
             };
             if (newLevel.start.x === 0) newLevel.start.dir = 'E';
-            else if (newLevel.start.x === EDITOR_SIZE - 1) newLevel.start.dir = 'W';
+            else if (newLevel.start.x === editorSize - 1) newLevel.start.dir = 'W';
             else if (newLevel.start.z === 0) newLevel.start.dir = 'S';
-            else if (newLevel.start.z === EDITOR_SIZE - 1) newLevel.start.dir = 'N';
+            else if (newLevel.start.z === editorSize - 1) newLevel.start.dir = 'N';
             customLevels[slotIndex] = newLevel;
             saveCustomLevels();
             const option = document.getElementById('editor-slot-select').options[slotIndex];
