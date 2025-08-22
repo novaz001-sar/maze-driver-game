@@ -3352,6 +3352,7 @@ function createMaterials() {
         let editorLandmarks = {}; // {1:{x,z}, 2:{x,z}, ...}
 
         let editorStart = {};
+        let userResizing = false;
         let editorGoal = {};
         let currentTool = 'wall';
         let isDrawing = false;
@@ -3395,10 +3396,16 @@ function createMaterials() {
             slotSelect.onchange = () => { initEditor(parseInt(slotSelect.value)); };
             const sizeInput = document.getElementById('editor-size-input');
             if (sizeInput) {
-                sizeInput.oninput = () => {
+                sizeInput.addEventListener('wheel', (e)=>{ e.preventDefault(); }, {passive:false});
+                const applySize = () => {
+                    userResizing = true;
                     const v = Math.max(5, Math.min(30, parseInt(sizeInput.value)||15));
-                    if (v !== editorSize) { editorSize = v; loadEditorGrid(parseInt(slotSelect.value)); }
+                    if (v !== editorSize) { editorSize = v; }
+                    loadEditorGrid(parseInt(slotSelect.value));
+                    userResizing = false;
                 };
+                sizeInput.oninput = applySize;
+                sizeInput.onchange = applySize;
             }
             loadEditorGrid(slotIndex);
             grid.onmousedown = (e) => {
@@ -3436,9 +3443,9 @@ function createMaterials() {
             editorLandmarks = {};
             editorGoal = {};
             const levelToLoad = customLevels[slotIndex];
-            if (levelToLoad && levelToLoad.grid) {
+            const sizeInput = document.getElementById('editor-size-input');
+            if (levelToLoad && levelToLoad.grid && !userResizing) {
                 editorSize = levelToLoad.grid.length;
-                const sizeInput = document.getElementById('editor-size-input');
                 if (sizeInput) sizeInput.value = editorSize;
             }
             for (let z = 0; z < editorSize; z++) {
