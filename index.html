@@ -1169,9 +1169,23 @@ function replaceNumberWithGoldStar(obj3d) {
         }
 
         function computeHuntOptimal(level) {
-            // sum of shortest path segments: S->1->2->...->N
-            if (!level.landmarks || !level.landmarks.length) return null;
-            let from = {x: level.start.x, z: level.start.z};
+    // sum of shortest path segments: S->1->2->...->N->E
+    if (!level.landmarks || !level.landmarks.length) return null;
+    let from = {x: level.start.x, z: level.start.z};
+    let total = 0;
+    for (const lm of level.landmarks) {
+        const d = findShortestDist(level.grid, from, {x: lm.x, z: lm.z});
+        if (d == null) return null;
+        total += d;
+        from = {x: lm.x, z: lm.z};
+    }
+    if (level.goal && typeof level.goal.x === 'number') {
+        const dGoal = findShortestDist(level.grid, from, {x: level.goal.x, z: level.goal.z});
+        if (dGoal == null) return null;
+        total += dGoal;
+    }
+    return total;
+};
             let total = 0;
             for (const lm of level.landmarks) {
                 const d = findShortestDist(level.grid, from, {x: lm.x, z: lm.z});
@@ -1300,6 +1314,17 @@ function replaceNumberWithGoldStar(obj3d) {
         let currentLanguage = 'zh';
         let promptTimeout;
         let hintTimeout;
+        // ==== Campaign medals persistence ====
+        let campaignMedals = []; // array of 'gold' | 'silver' | 'bronze' | undefined
+        function loadCampaignMedals(){
+            try { campaignMedals = JSON.parse(localStorage.getItem('campaignMedals')||'[]'); } catch(e){ campaignMedals = []; }
+        }
+        function saveCampaignMedals(){
+            try { localStorage.setItem('campaignMedals', JSON.stringify(campaignMedals)); } catch(e){}
+        }
+        function medalRank(m){ return m==='gold'?3 : m==='silver'?2 : m==='bronze'?1 : 0; }
+        function medalFromR(R){ if (R<=1.0) return 'gold'; if(R<=1.5) return 'silver'; return 'bronze'; }
+
 
         // ====================================================================
         // 语言翻译数据 (Language Translation Data)
@@ -1747,6 +1772,7 @@ function buildHuntLevels(huntMazes) {
             minimapCtx = minimap.getContext('2d');
 
             createMaterials();
+            loadCampaignMedals();
             loadCustomLevels();
 
             window.addEventListener('resize', onWindowResize, false);
@@ -2220,6 +2246,7 @@ function buildHuntLevels(huntMazes) {
                 let title = '';
                 let quote = '';
 
+                const rawMedal = medalFromR(R);
                 if (R <= 1.0) {
                     medal = '🥇';
                     title = lang.drivingGenius;
@@ -3256,7 +3283,9 @@ function createMaterials() {
             const levelCount = (gameMode === 'custom') ? customLevels.filter(l=>l).length : levels.length;
             for (let i = 0; i < levelCount; i++) {
                 const button = document.createElement('button');
-                button.textContent = i + 1;
+                const medalIcon = (gameMode !== 'custom' && campaignMedals[i])
+                    ? (campaignMedals[i]==='gold'?'🥇':(campaignMedals[i]==='silver'?'🥈':'🥉')) : '';
+                button.textContent = medalIcon ? (medalIcon + ' ' + (i+1)) : (i+1);
                 const isUnlocked = gameMode !== 'campaign' || i <= unlockedLevel;
                 button.disabled = !isUnlocked;
                 if (isUnlocked) {
