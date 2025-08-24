@@ -3403,9 +3403,6 @@ if (sizeInput) {
         function loadEditorGrid(slotIndex) {
             const grid = document.getElementById('editor-grid');
             grid.innerHTML = '';
-            // Ensure dynamic grid sizing per editorSize
-            grid.style.gridTemplateColumns = `repeat(${editorSize}, minmax(0, 1fr))`;
-            grid.style.gridTemplateRows    = `repeat(${editorSize}, minmax(0, 1fr))`;
             editorGridData = [];
             editorStart = {};
             editorLandmarks = {};
@@ -3417,6 +3414,9 @@ if (sizeInput) {
                 if (sizeInput) sizeInput.value = editorSize;
             }
             if (sizeInput && !userResizing) { sizeInput.value = String(editorSize); }
+            // Apply templates now that editorSize is finalized
+            grid.style.gridTemplateColumns = `repeat(${editorSize}, minmax(0, 1fr))`;
+            grid.style.gridTemplateRows    = `repeat(${editorSize}, minmax(0, 1fr))`;
             for (let z = 0; z < editorSize; z++) {
                 const row = [];
                 for (let x = 0; x < editorSize; x++) {
