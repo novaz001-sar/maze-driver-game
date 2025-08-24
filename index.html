@@ -1185,18 +1185,7 @@ function replaceNumberWithGoldStar(obj3d) {
         total += dGoal;
     }
     return total;
-};
-            let total = 0;
-            for (const lm of level.landmarks) {
-                const d = findShortestDist(level.grid, from, {x: lm.x, z: lm.z});
-                if (d == null) return null;
-                total += d;
-                from = {x: lm.x, z: lm.z};
-            }
-            return total;
-        }
-
-        function findShortestDist(grid, from, to) {
+}function findShortestDist(grid, from, to) {
             const H = grid.length, W = grid[0].length;
             const q = [{x: from.x, z: from.z, d: 0}];
             const vis = new Set([`${from.x},${from.z}`]);
