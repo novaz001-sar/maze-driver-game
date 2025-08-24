@@ -3498,7 +3498,7 @@ if (sizeInput) {
                 case 'lm3':
                 case 'lm4':
                 case 'lm5':
-                    editorGridData[z][x] = 1; // ensure walkable
+                    editorGridData[z][x] = 0; // ensure walkable
                     const lmId = parseInt(currentTool.replace('lm',''));
                     // clear previous of this id
                     if (editorLandmarks[lmId]) {
@@ -3544,6 +3544,16 @@ if (sizeInput) {
                 if (ok) {
                     lmArr = lmKeys.map(id => ({x: editorLandmarks[id].x, z: editorLandmarks[id].z, id}));
                 }
+            }
+
+
+            // Ensure landmark tiles are walkable in solver grid
+            if (lmArr.length) {
+                lmArr.forEach(({x, z}) => {
+                    if (mazeDataForSolver[z] && mazeDataForSolver[z][x] !== undefined) {
+                        mazeDataForSolver[z][x] = 1; // walkable in solver grid
+                    }
+                });
             }
 
             const newLevel = {
