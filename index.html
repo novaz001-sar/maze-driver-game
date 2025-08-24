@@ -1062,7 +1062,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
             const tex = new THREE.CanvasTexture(canvas);
             tex.needsUpdate = true;
-            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false });
+            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: true });
             const sprite = new THREE.Sprite(spriteMat);
             sprite.scale.set(1.2, 1.2, 1.2);
             sprite.position.set(0, 2.35, 0.62);
@@ -1225,7 +1225,7 @@ function replaceNumberWithGoldStar(obj3d) {
             replaceNumberWithGoldStar(dog);
             // mark for float-up animation
             dog.userData.collected = true;
-            dog.userData.floatYTarget = (dog.position.y || 0) + 2.4;
+            dog.userData.floatYTarget = Math.max((dog.position.y || 0), 7.2);
             dog.userData.floatSpeed = 0.9; // units per second
             const worldPos = gridToWorld(gridPos.x, gridPos.z, (currentLevelIndex===-1?customLevels[selectedCustomMapIndex]:levels[currentLevelIndex]).grid);
             spawnFireworksAtWorldPos(worldPos);
@@ -3403,6 +3403,9 @@ if (sizeInput) {
         function loadEditorGrid(slotIndex) {
             const grid = document.getElementById('editor-grid');
             grid.innerHTML = '';
+            // Ensure dynamic grid sizing per editorSize
+            grid.style.gridTemplateColumns = `repeat(${editorSize}, minmax(0, 1fr))`;
+            grid.style.gridTemplateRows    = `repeat(${editorSize}, minmax(0, 1fr))`;
             editorGridData = [];
             editorStart = {};
             editorLandmarks = {};
