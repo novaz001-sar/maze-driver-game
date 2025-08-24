@@ -212,18 +212,18 @@
         }
 
         .modal-content {
-            background-color: white;
-            color: var(--text-color);
-            padding: 24px;
-            border-radius: 16px;
-            border: 2px solid var(--primary-color);
-            text-align: center;
-            width: 95vw;
-            max-width: 1000px;
-            max-height: 90vh;
-            overflow: auto;
-            box-shadow: 0 0 25px rgba(0, 123, 255, 0.5);
-        }
+  background-color: white;
+  color: var(--text-color);
+  padding: 16px 16px 20px;
+  border-radius: 14px;
+  border: 2px solid var(--primary-color);
+  text-align: center;
+  width: 90vw;
+  max-width: 900px;
+  max-height: 86vh;
+  overflow: auto;
+  box-shadow: 0 0 20px rgba(0,123,255,0.35);
+}
         
         #editor-modal .modal-content, #custom-maps-modal .modal-content {
             max-width: 95vmin;
@@ -417,16 +417,14 @@
             box-shadow: 0 0 10px var(--highlight-color);
         }
         #editor-grid {
-            display: grid;
-            /* columns/rows will be set dynamically in JS according to editorSize */
-            width: min(90vmin, 900px);
-            height: min(90vmin, 900px);
-            margin: 8px auto 16px;
-        }
+  display: grid;
+  width: min(70vmin, 700px);
+  height: min(70vmin, 700px);
+  margin: 8px auto 12px;
+}
         .editor-cell {
             border: 1px solid #dee2e6;
-            transition: background-color 0.1s;
-            min-width: 0; min-height: 0;
+            transition: background-color: 0.1s;
         }
 
         .editor-cell.lm1 { background: #fff3cd; border: 2px solid #ffc107; }
@@ -590,7 +588,13 @@
                 height: 80vw;
             }
         }
-    </style>
+    
+/* Hide native number spinners to avoid accidental auto-increment on hover/scroll */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+</style>
 </head>
 <body>
     <!-- Intro video overlay -->
@@ -820,70 +824,9 @@
     </script>
     <script type="module">
         import * as THREE from 'three';
-import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
 
 
         // ================= Landmark Hunt Helpers =================
-
-// === Remote dog asset (GLB) ===
-const DOG_GLTF_URL = "https://raw.githubusercontent.com/novaz001-sar/maze-driver-game/main/assets/fantasy_dog.glb";
-let __gltfLoader = null;
-function createNumberBadgeSprite(numberId=1){
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    const cx = 256, cy = 256, R = 210;
-    const grad = ctx.createRadialGradient(cx-40, cy-40, 40, cx, cy, R);
-    grad.addColorStop(0, '#fff8e1'); grad.addColorStop(0.5, '#ffe082'); grad.addColorStop(1, '#ffca28');
-    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.closePath(); ctx.fill();
-    ctx.lineWidth = 18; ctx.strokeStyle = '#8d6e63'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, R-26, 0, Math.PI*2); ctx.closePath();
-    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.stroke();
-    const shadowGrad = ctx.createRadialGradient(cx, cy+20, 30, cx, cy+20, R);
-    shadowGrad.addColorStop(0, 'rgba(0,0,0,0.12)'); shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = shadowGrad; ctx.beginPath(); ctx.arc(cx, cy, R-6, 0, Math.PI*2); ctx.closePath(); ctx.fill();
-    ctx.font = 'bold 270px "Trebuchet MS", "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 8;
-    ctx.fillStyle = '#1b1b1b'; ctx.fillText(String(numberId), cx, cy+6);
-    ctx.shadowColor = 'transparent'; ctx.lineWidth = 18; ctx.strokeStyle = '#ffffff'; ctx.strokeText(String(numberId), cx, cy+6);
-    const tex = new THREE.CanvasTexture(canvas); tex.needsUpdate = true;
-    const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: true });
-    const sprite = new THREE.Sprite(spriteMat);
-    sprite.scale.set(1.2, 1.2, 1.2);
-    sprite.position.set(0, 2.35, 0.62);
-    sprite.name = 'numberBillboard';
-    return sprite;
-}
-
-async function loadPuppyFromURL(url, numberId=1){
-    try{
-        if(!__gltfLoader) __gltfLoader = new GLTFLoader();
-        const gltf = await new Promise((resolve, reject)=>{
-            __gltfLoader.load(url, resolve, undefined, reject);
-        });
-        const group = new THREE.Group();
-        const sceneNode = gltf.scene || (gltf.scenes && gltf.scenes[0]);
-        if (sceneNode){
-            sceneNode.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
-            group.add(sceneNode);
-        }
-        const badge = createNumberBadgeSprite(numberId);
-        group.add(badge);
-        if (gltf.animations && gltf.animations.length){
-            const mixer = new THREE.AnimationMixer(sceneNode);
-            const clip = gltf.animations[0];
-            mixer.clipAction(clip).play();
-            group.userData.mixer = mixer;
-        }
-        group.userData.id = numberId;
-        return group;
-    }catch(err){
-        console.warn('GLB load failed, fallback to procedural dog:', err);
-        return createPuppyDog(numberId);
-    }
-}
-
 
         // Enforce minimum spacing between landmarks: Euclidean distance >= 3 grid units
         function enforceLandmarkSpacing(level) {
@@ -1115,7 +1058,7 @@ async function loadPuppyFromURL(url, numberId=1){
 
             const tex = new THREE.CanvasTexture(canvas);
             tex.needsUpdate = true;
-            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: true });
+            const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false });
             const sprite = new THREE.Sprite(spriteMat);
             sprite.scale.set(1.2, 1.2, 1.2);
             sprite.position.set(0, 2.35, 0.62);
@@ -1206,19 +1149,17 @@ function replaceNumberWithGoldStar(obj3d) {
         }
 
         function createHuntObjects(level) {
-            if (huntGroup) {
-                huntGroup.traverse(o=>{ if (o.userData && o.userData.mixer) o.userData.mixer.update(delta); }); scene.remove(huntGroup); huntGroup = null; }
+            if (huntGroup) { scene.remove(huntGroup); huntGroup = null; }
             huntGroup = new THREE.Group();
             scene.add(huntGroup);
             currentHunt = { active: true, nextId: 1, total: level.landmarks.length, indexByKey: {}, objects: {} };
 
             for (const lm of level.landmarks) {
                 const worldPos = gridToWorld(lm.x, lm.z, level.grid);
-                loadPuppyFromURL(DOG_GLTF_URL, lm.id).then(dog=>{
-                    dog.position.set(worldPos.x, 0, worldPos.z);
-                    huntGroup.add(dog);
-                    currentHunt.objects[lm.id] = dog;
-                });
+                const dog = createPuppyDog(lm.id);
+                dog.position.set(worldPos.x, 0, worldPos.z);
+                huntGroup.add(dog);
+                currentHunt.objects[lm.id] = dog;
                 currentHunt.indexByKey[`${lm.x},${lm.z}`] = lm.id;
             }
         }
@@ -1280,7 +1221,7 @@ function replaceNumberWithGoldStar(obj3d) {
             replaceNumberWithGoldStar(dog);
             // mark for float-up animation
             dog.userData.collected = true;
-            dog.userData.floatYTarget = Math.max((dog.position.y || 0), 6.2);
+            dog.userData.floatYTarget = (dog.position.y || 0) + 2.4;
             dog.userData.floatSpeed = 0.9; // units per second
             const worldPos = gridToWorld(gridPos.x, gridPos.z, (currentLevelIndex===-1?customLevels[selectedCustomMapIndex]:levels[currentLevelIndex]).grid);
             spawnFireworksAtWorldPos(worldPos);
@@ -2060,8 +2001,7 @@ function buildHuntLevels(huntMazes) {
 
             while(mazeGroup.children.length > 0){ mazeGroup.remove(mazeGroup.children[0]); }
             while(landmarksGroup.children.length > 0){ camera.remove(landmarksGroup); landmarksGroup = new THREE.Group(); camera.add(landmarksGroup); }
-            if (huntGroup) {
-                huntGroup.traverse(o=>{ if (o.userData && o.userData.mixer) o.userData.mixer.update(delta); }); scene.remove(huntGroup); huntGroup = null; }
+            if (huntGroup) { scene.remove(huntGroup); huntGroup = null; }
             if (effectsGroup) { scene.remove(effectsGroup); effectsGroup = null; }
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
             if(goalMarker) scene.remove(goalMarker);
@@ -2409,7 +2349,6 @@ function buildHuntLevels(huntMazes) {
             }
             
             if (huntGroup) {
-                huntGroup.traverse(o=>{ if (o.userData && o.userData.mixer) o.userData.mixer.update(delta); });
                 huntGroup.children.forEach(d => {
                     const idle = Math.sin(elapsedTime*1.8 + (d.userData.id||0))*0.05;
                     if (d.userData.collected) {
@@ -3394,18 +3333,42 @@ function createMaterials() {
             }
             slotSelect.value = slotIndex;
             slotSelect.onchange = () => { initEditor(parseInt(slotSelect.value)); };
-            const sizeInput = document.getElementById('editor-size-input');
+            
+const sizeInput = document.getElementById('editor-size-input');
+if (sizeInput) {
+    // Prevent wheel changing number inadvertently
+    sizeInput.addEventListener('wheel', (e)=>{ e.preventDefault(); }, {passive:false});
+    let sizeDebounce = null;
+    const clampSize = (v)=> Math.max(5, Math.min(30, v));
+    const applySize = () => {
+        userResizing = true;
+        let v = parseInt(sizeInput.value, 10);
+        if (!Number.isNaN(v)) {
+            v = clampSize(v);
+            if (v !== editorSize) editorSize = v;
+            loadEditorGrid(parseInt(slotSelect.value));
+        }
+        userResizing = false;
+    };
+    sizeInput.addEventListener('input', () => {
+        if (sizeDebounce) clearTimeout(sizeDebounce);
+        sizeDebounce = setTimeout(() => {
+            let v = parseInt(sizeInput.value, 10);
+            if (!Number.isNaN(v)) {
+                v = clampSize(v);
+                if (v !== editorSize) { userResizing = true; editorSize = v; loadEditorGrid(parseInt(slotSelect.value)); userResizing=false; }
+            }
+        }, 180);
+    });
+    sizeInput.addEventListener('change', applySize);
+    sizeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applySize(); }});
+}
             if (sizeInput) {
-                sizeInput.addEventListener('wheel', (e)=>{ e.preventDefault(); }, {passive:false});
-                const applySize = () => {
-                    userResizing = true;
+                sizeInput.onchange = () => {
                     const v = Math.max(5, Math.min(30, parseInt(sizeInput.value)||15));
-                    if (v !== editorSize) { editorSize = v; }
+                    editorSize = v;
                     loadEditorGrid(parseInt(slotSelect.value));
-                    userResizing = false;
                 };
-                sizeInput.oninput = applySize;
-                sizeInput.onchange = applySize;
             }
             loadEditorGrid(slotIndex);
             grid.onmousedown = (e) => {
@@ -3436,8 +3399,6 @@ function createMaterials() {
         function loadEditorGrid(slotIndex) {
             const grid = document.getElementById('editor-grid');
             grid.innerHTML = '';
-            grid.style.gridTemplateColumns = `repeat(${editorSize}, 1fr)`;
-            grid.style.gridTemplateRows = `repeat(${editorSize}, 1fr)`;
             editorGridData = [];
             editorStart = {};
             editorLandmarks = {};
@@ -3448,6 +3409,7 @@ function createMaterials() {
                 editorSize = levelToLoad.grid.length;
                 if (sizeInput) sizeInput.value = editorSize;
             }
+            if (sizeInput && !userResizing) { sizeInput.value = String(editorSize); }
             for (let z = 0; z < editorSize; z++) {
                 const row = [];
                 for (let x = 0; x < editorSize; x++) {
@@ -3472,7 +3434,7 @@ function createMaterials() {
                 }
                 editorGridData.push(row);
             }
-        
+            userResizing = false;
             // Paint landmarks if any (after grid built)
             if (levelToLoad && levelToLoad.landmarks && levelToLoad.landmarks.length) {
                 levelToLoad.landmarks.forEach(lm => {
