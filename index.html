@@ -6,16 +6,18 @@
     <title>第一人称迷宫驾驶 First-Person Maze Driver</title>
     <!--
     ============================================================================
-    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v7.9 ##
+    ## README：第一人称迷宫驾驶 (First-Person Maze Driver) - v8.0 ##
     ============================================================================
 
     这是根据用户请求修改的版本。
 
-    ### v7.9 更新内容 (What's New in v7.9)
-    1.  **键位修改 (Controls Change)**:
-        * 向前移动的按键已从 `空格 (Space)` 更改为 `W` 键。
-    2.  **文本更新 (Text Update)**:
-        * 游戏内所有相关的操作说明已同步更新为 `W` 键。
+    ### v8.0 更新内容 (What's New in v8.0)
+    1.  **新增方向键支持 (Arrow Keys)**:
+        * 在 `A` / `D` / `W` 的基础上，增加 `←` / `→` / `↑` 对应左转 / 右转 / 前进。
+    2.  **编辑器“标黄”功能 (Mark Yellow in Editor)**:
+        * 在地图编辑器新增【标黄】工具。被标黄的格子在游戏中会显示为**金黄色地面**，并且**上方会漂浮问号**提示。
+    3.  **第三人称视角 (Third-Person Camera)**:
+        * 新增第三人称半俯瞰视角，屏幕上方中间可随时切换【第一人称 / 第三人称】（默认第一人称）。第三人称下会出现一台可操控的小汽车模型。
 
     ### 玩法说明 (How to Play)
     1.  **路口决策 (Intersection)**:
@@ -598,6 +600,44 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
 
+
+/* === NEW: View toggle (first-person / third-person) at top-center === */
+#view-toggle {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid var(--primary-color);
+    border-radius: 999px;
+    pointer-events: auto;
+    display: none; /* hidden until gameplay */
+    gap: 0;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+#view-toggle button {
+    appearance: none;
+    border: none;
+    padding: 8px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-color);
+    font-weight: 700;
+}
+#view-toggle button.selected {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+/* === NEW: Editor Yellow cell styling === */
+.editor-cell.yellow { 
+    background: linear-gradient(180deg, #fff6bf 0%, #ffe082 60%, #ffd54f 100%);
+    border: 2px solid #ffca28;
+    box-shadow: inset 0 0 0 2px rgba(255, 213, 79, 0.6);
+}
+
 </style>
 </head>
 <body>
@@ -613,6 +653,10 @@ input[type="number"] { -moz-appearance: textfield; }
         <div id="top-hud" class="hud">
              <div id="map-view-count"></div>
              <div id="ingame-hint" style="display: none;"></div>
+             <div id="view-toggle" aria-label="视角切换">
+                 <button id="first-person-btn" class="selected" data-lang-zh="第一人称" data-lang-en="First-Person">第一人称</button>
+                 <button id="third-person-btn" data-lang-zh="第三人称" data-lang-en="Third-Person">第三人称</button>
+             </div>
         </div>
         <div id="bottom-hud" class="hud">
             <div id="big-map-prompt" class="hud-prompt"></div>
@@ -732,6 +776,7 @@ input[type="number"] { -moz-appearance: textfield; }
                 <button id="tool-lm3" data-tool="lm3" data-lang-zh="路标3" data-lang-en="LM3">路标3</button>
                 <button id="tool-lm4" data-tool="lm4" data-lang-zh="路标4" data-lang-en="LM4">路标4</button>
                 <button id="tool-lm5" data-tool="lm5" data-lang-zh="路标5" data-lang-en="LM5">路标5</button>
+                <button id="tool-yellow" data-tool="yellow" data-lang-zh="标黄" data-lang-en="Yellow">标黄</button>
             </div>
             <div id="editor-grid"></div>
             <p id="editor-message" style="color: red; min-height: 1.2em;"></p>
@@ -1128,7 +1173,20 @@ function replaceNumberWithGoldStar(obj3d) {
             effectsGroup.add(points);
         }
 
-        function updateEffects(delta) {
+        
+// === One-time binder for view toggle buttons ===
+function bindViewToggleOnce(){
+    const vt = document.getElementById('view-toggle');
+    if (!vt || vt.dataset.bound === '1') return;
+    vt.dataset.bound = '1';
+    const fpBtn = document.getElementById('first-person-btn');
+    const tpBtn = document.getElementById('third-person-btn');
+    if (fpBtn && tpBtn) {
+        fpBtn.addEventListener('click', () => { cameraMode = 'first'; applyCameraMode(); });
+        tpBtn.addEventListener('click', () => { cameraMode = 'third'; applyCameraMode(); });
+    }
+}
+function updateEffects(delta) {
             if (!effectsGroup) return;
             for (let i = effectsGroup.children.length - 1; i >= 0; i--) {
                 const p = effectsGroup.children[i];
@@ -1272,7 +1330,11 @@ function replaceNumberWithGoldStar(obj3d) {
         };
         let scene, camera, renderer, clock;
         let starField;
-        let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel;
+        let player, mazeGroup, landmarksGroup, goalMarker, sceneryGroup, steeringWheel, carObject, goldGroup;
+        let cameraMode = 'first';
+        // Map from 'x,z' -> { plate, sprite, activated }
+        let goldMap = {};
+
         let minimap, minimapCtx;
         
         let gameState = 'STARTUP_MODAL';
@@ -1338,7 +1400,7 @@ function replaceNumberWithGoldStar(obj3d) {
                 turnRight: "向右",
                 turnAround: "掉头",
                 // MODIFIED: Updated helper text to use 'W'
-                helperText: "按 A/D 转向, W 前进",
+                helperText: "按 A/D 或 ←/→ 转向，W 或 ↑ 前进",
                 level: "关卡",
                 confirmReset: "您确定要重置所有游戏数据吗？此操作无法撤销。",
                 allLevelsCleared: "恭喜你！已通关所有关卡！",
@@ -1381,7 +1443,7 @@ function replaceNumberWithGoldStar(obj3d) {
                 turnRight: "Turn Right",
                 turnAround: "Turn Around",
                 // MODIFIED: Updated helper text to use 'W'
-                helperText: "Use A/D to turn, W to move",
+                helperText: "Use A/D or ←/→ to turn, W or ↑ to move",
                 level: "Level",
                 confirmReset: "Are you sure you want to reset all game data? This action cannot be undone.",
                 allLevelsCleared: "Congratulations! You have cleared all levels!",
@@ -1756,6 +1818,11 @@ function buildHuntLevels(huntMazes) {
             
             steeringWheel = createSteeringWheel();
             camera.add(steeringWheel);
+
+            // NEW: create player car for third-person view (hidden by default)
+            carObject = createPlayerCar();
+            player.add(carObject);
+            carObject.visible = false;
             
             minimap = document.getElementById('minimap-canvas');
             minimapCtx = minimap.getContext('2d');
@@ -1777,10 +1844,21 @@ function buildHuntLevels(huntMazes) {
         }
 
         function setupUI() {
+            bindViewToggleOnce();
+
             document.getElementById('initial-language-select').addEventListener('change', (e) => {
                 currentLanguage = e.target.value;
                 updateUIText();
-            });
+            
+            // === NEW: View toggle buttons ===
+            const fpBtn = document.getElementById('first-person-btn');
+            const tpBtn = document.getElementById('third-person-btn');
+            if (fpBtn && tpBtn) {
+                fpBtn.addEventListener('click', () => { cameraMode = 'first'; applyCameraMode(); });
+                tpBtn.addEventListener('click', () => { cameraMode = 'third'; applyCameraMode(); });
+            }
+
+        });
 
             document.getElementById('start-game-btn').addEventListener('click', () => {
                 currentLanguage = document.getElementById('initial-language-select').value;
@@ -1985,10 +2063,12 @@ function buildHuntLevels(huntMazes) {
             while(landmarksGroup.children.length > 0){ landmarksGroup.remove(landmarksGroup.children[0]); }
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
             if(goalMarker) scene.remove(goalMarker);
+            if (goldGroup) { scene.remove(goldGroup); goldGroup = null; }
 
             document.getElementById('minimap-container').style.display = 'none';
             document.getElementById('map-view-count').style.display = 'none';
             document.getElementById('big-map-prompt').style.display = 'none';
+            const vt = document.getElementById('view-toggle'); if (vt) vt.style.display = 'none';
             document.getElementById('ingame-hint').style.display = 'none';
             clearTimeout(hintTimeout);
         }
@@ -2024,10 +2104,13 @@ function buildHuntLevels(huntMazes) {
             if (effectsGroup) { scene.remove(effectsGroup); effectsGroup = null; }
             while(sceneryGroup.children.length > 0){ sceneryGroup.remove(sceneryGroup.children[0]); }
             if(goalMarker) scene.remove(goalMarker);
+            if (goldGroup) { scene.remove(goldGroup); goldGroup = null; }
 
             createMazeMesh(level.grid, level.goal);
             placeRoadsideObjects(level.grid);
             createGoalMarker(level.goal);
+            // NEW: render golden tiles (if any)
+            createGoldTiles(level);
             if (level.landmarks && level.landmarks.length) { createHuntObjects(level); }
             
             const startPos = gridToWorld(level.start.x, level.start.z, level.grid);
@@ -2080,7 +2163,9 @@ function buildHuntLevels(huntMazes) {
             updateUIText();
             
             bigMapViewModal.style.display = 'flex';
-            document.getElementById('big-map-prompt').style.display = 'none'; 
+            const vt = document.getElementById('view-toggle'); if (vt) vt.style.display = 'flex'; applyCameraMode();
+            document.getElementById('big-map-prompt').style.display = 'none';
+            
         }
 
         function gridToWorld(x, z, grid) {
@@ -2132,7 +2217,16 @@ function buildHuntLevels(huntMazes) {
             gameState = 'AT_INTERSECTION';
         }
 
+        
         function cameraShake() {
+            // Respect current camera mode; jitter around the mode's base local position
+            const basePos = (typeof cameraMode !== 'undefined' && cameraMode === 'third')
+                ? new THREE.Vector3(0, WALL_HEIGHT * 1.2, TILE_SIZE * 0.9)
+                : new THREE.Vector3(0, WALL_HEIGHT * 0.4, 0);
+            const baseRotX = (typeof cameraMode !== 'undefined' && cameraMode === 'third')
+                ? THREE.MathUtils.degToRad(-20)
+                : THREE.MathUtils.degToRad(-8);
+
             const shakeIntensity = 0.05;
             let shakeDuration = 200;
             const startTime = Date.now();
@@ -2140,18 +2234,22 @@ function buildHuntLevels(huntMazes) {
             function shake() {
                 const elapsedTime = Date.now() - startTime;
                 if (elapsedTime > shakeDuration) {
-                    camera.position.set(0, WALL_HEIGHT * 0.4, 0);
+                    camera.position.copy(basePos);
+                    camera.rotation.x = baseRotX;
                     return;
                 }
                 const progress = elapsedTime / shakeDuration;
                 const shakeAmount = shakeIntensity * (1 - progress);
                 const shakeX = (Math.random() - 0.5) * shakeAmount;
                 const shakeY = (Math.random() - 0.5) * shakeAmount;
-                camera.position.set(shakeX, WALL_HEIGHT * 0.4 + shakeY, 0);
+                const shakeZ = (Math.random() - 0.5) * shakeAmount * (cameraMode==='third'?0.2:0.0); // slight Z jitter only in 3rd
+                camera.position.set(basePos.x + shakeX, basePos.y + shakeY, basePos.z + shakeZ);
+                camera.rotation.x = baseRotX;
                 requestAnimationFrame(shake);
             }
             shake();
         }
+    
         
         function showTemporaryMessage(message, duration = 2000) {
             const prompt = document.getElementById('choice-prompt');
@@ -2180,9 +2278,9 @@ function buildHuntLevels(huntMazes) {
             
             const options = [];
             // MODIFIED: Updated prompt to show 'W' key
-            if (availableTurns.forward) options.push(`${lang.forward} [W]`);
-            if (availableTurns.left) options.push(`${lang.turnLeft} [A]`);
-            if (availableTurns.right) options.push(`${lang.turnRight} [D]`);
+            if (availableTurns.forward) options.push(`${lang.forward} [W/↑]`);
+            if (availableTurns.left) options.push(`${lang.turnLeft} [A/←]`);
+            if (availableTurns.right) options.push(`${lang.turnRight} [D/→]`);
 
             if (!availableTurns.forward && !availableTurns.left && !availableTurns.right) {
                 prompt.textContent = lang.prompt_dead_end;
@@ -2382,6 +2480,51 @@ function buildHuntLevels(huntMazes) {
                 });
             }
             updateEffects(delta);
+            // Car dynamics (wheel spin & steering) + headlights adaptation
+            if (carObject && carObject.visible && carObject.userData && carObject.userData.wheels) {
+                if (!carObject.userData._lastPos) {
+                    carObject.userData._lastPos = player.position.clone();
+                }
+                const last = carObject.userData._lastPos;
+                const distMoved = player.position.distanceTo(last);
+                carObject.userData._lastPos.copy(player.position);
+                const r = carObject.userData.wheelRadius || 0.48;
+                const spinDelta = (r>0) ? (distMoved / r) : 0;
+                const ws = carObject.userData.wheels;
+                if (ws.frontLTire) ws.frontLTire.rotation.x -= spinDelta;
+                if (ws.frontRTire) ws.frontRTire.rotation.x -= spinDelta;
+                if (ws.rearLTire)  ws.rearLTire.rotation.x  -= spinDelta;
+                if (ws.rearRTire)  ws.rearRTire.rotation.x  -= spinDelta;
+                const steer = THREE.MathUtils.clamp(targetRotation.y - player.rotation.y, -Math.PI/4, Math.PI/4);
+                if (ws.frontLPivot) ws.frontLPivot.rotation.y = steer;
+                if (ws.frontRPivot) ws.frontRPivot.rotation.y = steer;
+                if (carObject.rotation) carObject.rotation.z = steer * 0.08;
+                if (carObject.userData.headlights) {
+                    const base = 0.6;
+                    const nightFactor = Math.max(0, 1 - (Math.sin(clock.getElapsedTime() * (0.1 / 3)) + 1) / 2 * 3);
+                    const intensity = base + nightFactor * 3.2;
+                    carObject.userData.headlights.forEach(l => l.intensity = intensity);
+                }
+            }
+
+            // NEW: animate floating question marks above golden tiles
+            if (goldGroup) {
+                for (const ch of goldGroup.children) {
+                    if (ch.name === 'qmSprite') {
+                        
+                        if (typeof ch.userData.raiseTo === 'number' && ch.userData.baseY < ch.userData.raiseTo) {
+                            ch.userData.baseY = Math.min(ch.userData.raiseTo, ch.userData.baseY + delta * 1.6);
+                        } else {
+                            const defY = (typeof ch.userData.defaultY === 'number') ? ch.userData.defaultY : 2.6;
+                            if (ch.userData.baseY > defY) {
+                                ch.userData.baseY = Math.max(defY, ch.userData.baseY - delta * 1.2);
+                            }
+                        }
+                        ch.position.y = ch.userData.baseY + Math.sin(elapsedTime * 2.0 + ch.userData.phase) * 0.28;
+                        ch.rotation.z += delta * 0.2;
+                    }
+                }
+            }
 
             if (steeringWheel) {
                 steeringWheel.rotation.z = (player.rotation.y - targetRotation.y) * 2;
@@ -2415,7 +2558,8 @@ function buildHuntLevels(huntMazes) {
         // 输入处理 (Input Handling)
         // ====================================================================
         
-        function onKeyDown(event) {
+        
+function onKeyDown(event) {
             if (!event || !event.key) return;
             const key = event.key.toLowerCase();
             if (keyState[key]) return;
@@ -2435,25 +2579,23 @@ function buildHuntLevels(huntMazes) {
 
             if (gameState !== 'AT_INTERSECTION') return;
             
-            if (key === 'a' || key === 'd') {
+            if (key === 'a' || key === 'd' || key === 'arrowleft' || key === 'arrowright') {
                 if (keyDebounce) return;
                 keyDebounce = true;
                 setTimeout(() => { keyDebounce = false; }, 100);
 
-                if (key === 'd') {
+                if (key === 'd' || key === 'arrowright') {
                     targetRotation.y -= Math.PI / 2;
-                } else if (key === 'a') {
+                } else if (key === 'a' || key === 'arrowleft') {
                     targetRotation.y += Math.PI / 2;
                 }
                 gameState = 'TURNING';
-            // MODIFIED: Changed key check from 'space' to 'w'
-            } else if (key === 'w') {
+            } else if (key === 'w' || key === 'arrowup') {
                 setupMove();
             }
         }
         
-        function onKeyUp(event) {
-            if (!event || !event.key) return;
+        function onKeyUp(event) {           if (!event || !event.key) return;
             const key = event.key.toLowerCase();
             keyState[key] = false;
         }
@@ -2800,7 +2942,205 @@ goalMarker.add(heart);
             return available;
         }
         
-        function createSteeringWheel() {
+        
+        
+        // === NEW: Simple low-poly player car model for third-person view ===
+        
+        
+function createPlayerCar(){
+    const g = new THREE.Group();
+    g.name = 'playerCar';
+
+    // Materials
+    const bodyPaint = new THREE.MeshPhysicalMaterial({ color: 0xc00000, metalness: 0.9, roughness: 0.22, clearcoat: 1.0, clearcoatRoughness: 0.05 });
+    const matteBlack = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.4, roughness: 0.85 });
+    const trimBlack  = new THREE.MeshStandardMaterial({ color: 0x202020, metalness: 0.5, roughness: 0.5 });
+    const chrome     = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, metalness: 1.0, roughness: 0.15 });
+    const glass      = new THREE.MeshPhysicalMaterial({ color: 0x8ab6ff, metalness: 0.0, roughness: 0.05, transmission: 0.6, transparent: true, thickness: 0.2 });
+    const lightMat   = new THREE.MeshStandardMaterial({ color: 0xfff6c4, emissive: 0xffe8a0, emissiveIntensity: 0.4, metalness: 0.0, roughness: 0.3 });
+    const tailMat    = new THREE.MeshStandardMaterial({ color: 0xff4d4d, emissive: 0xaa0011, emissiveIntensity: 0.25, metalness: 0.0, roughness: 0.35 });
+
+    function extrude(shape, depth=0.3, bevelSize=0.04, bevelThickness=0.04){
+        return new THREE.ExtrudeGeometry(shape, {
+            depth, bevelEnabled: true, steps: 1, bevelSegments: 2, bevelSize, bevelThickness
+        });
+    }
+
+    // Main body
+    const bodyShape = new THREE.Shape();
+    bodyShape.moveTo(-1.05, -2.0);
+    bodyShape.lineTo(+1.05, -2.0);
+    bodyShape.lineTo(+1.15, +1.0);
+    bodyShape.lineTo(0.0,   +1.6);
+    bodyShape.lineTo(-1.15, +1.0);
+    bodyShape.closePath();
+    const bodyGeo = extrude(bodyShape, 0.6, 0.06, 0.06);
+    const body = new THREE.Mesh(bodyGeo, bodyPaint);
+    body.rotation.x = Math.PI/2;
+    body.position.y = 0.58;
+    g.add(body);
+
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.42, 1.5), glass);
+    canopy.position.set(0, 0.98, -0.2);
+    canopy.rotation.x = THREE.MathUtils.degToRad(-8);
+    g.add(canopy);
+
+    const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.12, 0.5), trimBlack);
+    spoiler.position.set(0, 1.08, -2.1);
+    g.add(spoiler);
+
+    const splitter = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.06, 0.36), matteBlack);
+    splitter.position.set(0, 0.4, 1.9);
+    g.add(splitter);
+
+    const exhaustL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.35, 18), chrome);
+    exhaustL.rotation.z = Math.PI/2; exhaustL.position.set(-0.45, 0.55, -2.05);
+    const exhaustR = exhaustL.clone(); exhaustR.position.x *= -1;
+    g.add(exhaustL, exhaustR);
+
+    const headGeo = new THREE.BoxGeometry(0.32, 0.16, 0.06);
+    const headL = new THREE.Mesh(headGeo, lightMat); headL.position.set(-0.6, 0.82, 2.08); g.add(headL);
+    const headR = headL.clone(); headR.position.x *= -1; g.add(headR);
+    const hl = new THREE.PointLight(0xfff6c4, 0.0, 10, 2.0); hl.position.copy(headL.position); g.add(hl);
+    const hr = hl.clone(); hr.position.copy(headR.position); g.add(hr);
+
+    const tailGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.04, 18);
+    const tailL = new THREE.Mesh(tailGeo, tailMat); tailL.rotation.x = Math.PI/2; tailL.position.set(-0.6, 0.86, -2.06); g.add(tailL);
+    const tailR = tailL.clone(); tailR.position.x *= -1; g.add(tailR);
+
+    function buildWheelSet(){
+        const set = {};
+        const tireGeom = new THREE.CylinderGeometry(0.48, 0.48, 0.36, 24);
+        const tireMat  = new THREE.MeshStandardMaterial({ color: 0x202020, metalness: 0.1, roughness: 0.95 });
+        function makeWheel(){
+            const hub = new THREE.Group();
+            const tire = new THREE.Mesh(tireGeom, tireMat);
+            tire.rotation.z = Math.PI/2;
+            hub.add(tire);
+            return {hub, tire};
+        }
+        const flPivot = new THREE.Group(); const frPivot = new THREE.Group();
+        const fl = makeWheel(); const fr = makeWheel();
+        flPivot.add(fl.hub); frPivot.add(fr.hub);
+        const rl = makeWheel(); const rr = makeWheel();
+        flPivot.position.set(-0.98, 0.48, 1.5);
+        frPivot.position.set(+0.98, 0.48, 1.5);
+        rl.hub.position.set(-0.98, 0.48, -1.5);
+        rr.hub.position.set(+0.98, 0.48, -1.5);
+        g.add(flPivot, frPivot, rl.hub, rr.hub);
+        return { frontLPivot: flPivot, frontRPivot: frPivot, frontLTire: fl.tire, frontRTire: fr.tire, rearLTire: rl.tire, rearRTire: rr.tire };
+    }
+    const wheels = buildWheelSet();
+    g.userData = { headlights: [hl, hr], wheels, wheelRadius: 0.48 };
+    return g;
+}
+
+    
+
+        // === NEW: Camera mode switcher ===
+        function applyCameraMode() {
+            const fpBtn = document.getElementById('first-person-btn');
+            const tpBtn = document.getElementById('third-person-btn');
+            if (cameraMode === 'first') {
+                camera.position.set(0, WALL_HEIGHT * 0.4, 0);
+                camera.rotation.x = THREE.MathUtils.degToRad(-8);
+                if (steeringWheel) steeringWheel.visible = true;
+                if (carObject) carObject.visible = false;
+                if (fpBtn && tpBtn) { fpBtn.classList.add('selected'); tpBtn.classList.remove('selected'); }
+            } else {
+                camera.position.set(0, WALL_HEIGHT * 1.2, TILE_SIZE * 0.9);
+                camera.rotation.x = THREE.MathUtils.degToRad(-20);
+                if (steeringWheel) steeringWheel.visible = false;
+                if (carObject) carObject.visible = true;
+                if (fpBtn && tpBtn) { tpBtn.classList.add('selected'); fpBtn.classList.remove('selected'); }
+            }
+        }
+
+        // === NEW: Golden tiles with floating question mark ===
+        function createQuestionMarkSprite() {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0,0,256,256);
+            // glow
+            const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 120);
+            grad.addColorStop(0, 'rgba(255,215,0,0.85)');
+            grad.addColorStop(1, 'rgba(255,215,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(128,128,120,0,Math.PI*2); ctx.fill();
+            // question mark
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#b8860b';
+            ctx.lineWidth = 10;
+            ctx.font = 'bold 180px "Segoe UI", Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.strokeText('?', 128, 128);
+            ctx.fillText('?', 128, 128);
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, depthWrite: false, depthTest: true, transparent: true });
+            const spr = new THREE.Sprite(mat);
+            spr.scale.set(2.2, 2.2, 1);
+            spr.name = 'qmSprite';
+            spr.userData.defaultY = 2.6;
+            spr.userData.baseY = 2.6;
+            spr.userData.phase = Math.random() * Math.PI * 2;
+            return spr;
+        }
+
+        function createGoldTiles(level) {
+            if (goldGroup) { scene.remove(goldGroup); goldGroup = null; }
+            goldMap = {};
+            if (!level || !level.goldTiles || !level.goldTiles.length) { return; }
+            goldGroup = new THREE.Group();
+            const planeGeo = new THREE.PlaneGeometry(TILE_SIZE * 0.92, TILE_SIZE * 0.92);
+            for (const t of level.goldTiles) {
+                const worldPos = gridToWorld(t.x, t.z, level.grid);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: 0xffd700,
+                    metalness: 0.85,
+                    roughness: 0.25,
+                    emissive: 0x8b7500,
+                    emissiveIntensity: 0.25
+                });
+                const plate = new THREE.Mesh(planeGeo, mat);
+                plate.rotation.x = -Math.PI / 2;
+                plate.position.set(worldPos.x, 0.02, worldPos.z);
+                goldGroup.add(plate);
+
+                const qm = createQuestionMarkSprite();
+                qm.position.set(worldPos.x, qm.userData.baseY, worldPos.z);
+                qm.userData.raiseTo = null;
+                goldGroup.add(qm);
+
+                goldMap[`${t.x},${t.z}`] = { plate, sprite: qm, activated: false };
+            }
+            scene.add(goldGroup);
+        }
+
+
+        // Trigger when player enters a golden-marked tile
+        function handleYellowEnter(gridPos) {
+            if (!goldMap) return;
+            const key = `${gridPos.x},${gridPos.z}`;
+            const rec = goldMap[key];
+            if (!rec || rec.activated) return;
+            rec.activated = true;
+            // Raise question mark higher
+            if (rec.sprite && rec.sprite.userData) {
+                rec.sprite.userData.raiseTo = 4.2;
+            }
+            // Turn tile to red
+            if (rec.plate && rec.plate.material) {
+                const m = rec.plate.material;
+                if (m.color) m.color.set(0xff5252);
+                if (m.emissive) m.emissive.set(0x7a0000);
+                if ('emissiveIntensity' in m) m.emissiveIntensity = 0.28;
+                m.needsUpdate = true;
+            }
+        }
+
+function createSteeringWheel() {
             const wheelGroup = new THREE.Group();
             const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0.1 });
             const gloveMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
@@ -3035,6 +3375,20 @@ function createMaterials() {
                     ctx.fillRect(xPos, yPos, cellWidth, cellHeight);
                 }
             }
+            
+            // overlay golden marked tiles
+            if (level.goldTiles && level.goldTiles.length) {
+                for (const t of level.goldTiles) {
+                    const gx = t.x * cellWidth;
+                    const gy = t.z * cellHeight;
+                    ctx.fillStyle = '#ffd54f';
+                    ctx.fillRect(gx, gy, cellWidth, cellHeight);
+                    ctx.strokeStyle = '#ffb300';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(gx+1, gy+1, cellWidth-2, cellHeight-2);
+                }
+            }
+
             ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--start-color');
             ctx.fillRect(start.x * cellWidth, start.z * cellHeight, cellWidth, cellHeight);
             ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--goal-color');
@@ -3092,6 +3446,30 @@ function createMaterials() {
             // Hunt: trigger collection when player enters a landmark cell
             if (level.landmarks && level.landmarks.length) {
                 handleHuntCollect(gridPos);
+            }
+            // Yellow tile: trigger reaction when entering marked cell
+            if (typeof handleYellowEnter === 'function') {
+                handleYellowEnter(gridPos);
+            // Reset other yellow tiles we left
+            if (goldMap) {
+                const curKey = `${gridPos.x},${gridPos.z}`;
+                for (const [key, rec] of Object.entries(goldMap)) {
+                    if (rec && key !== curKey && rec.activated) {
+                        rec.activated = false;
+                        if (rec.sprite && rec.sprite.userData) {
+                            rec.sprite.userData.raiseTo = null;
+                            rec.sprite.userData.baseY = (typeof rec.sprite.userData.defaultY === 'number') ? rec.sprite.userData.defaultY : 2.6;
+                        }
+                        if (rec.plate && rec.plate.material) {
+                            const m = rec.plate.material;
+                            if (m.color) m.color.set(0xffd700);
+                            if (m.emissive) m.emissive.set(0x8b7500);
+                            if ('emissiveIntensity' in m) m.emissiveIntensity = 0.25;
+                            m.needsUpdate = true;
+                        }
+                    }
+                }
+            }
             }
             drawMinimapBackground(level);
             const ctx = minimapCtx;
@@ -3263,7 +3641,7 @@ function createMaterials() {
                 container.classList.remove('small-map');
                 container.classList.add('big-map');
                 container.style.display = 'block';
-}
+            }
         }
 
         function showLevelSelectModal() {
@@ -3310,9 +3688,13 @@ function createMaterials() {
         // ====================================================================
         
         let editorGridData = [];
-        let editorLandmarks = {}; // {1:{x,z}, 2:{x,z}, ...}
+        let editorYellow = new Set(); // 'x,z'
+        let editorLandmarks = {};
+            // editorYellow initialized above
+        // duplicate editorYellow declaration removed
 
         let editorStart = {};
+            editorYellow = new Set();
         let userResizing = false;
         let editorGoal = {};
         let currentTool = 'wall';
@@ -3419,11 +3801,15 @@ if (sizeInput) {
         }
         
         function loadEditorGrid(slotIndex) {
+            selectedCustomMapIndex = slotIndex;
+
             const grid = document.getElementById('editor-grid');
             grid.innerHTML = '';
             editorGridData = [];
             editorStart = {};
+            editorYellow = new Set();
             editorLandmarks = {};
+            editorYellow = new Set();
             editorGoal = {};
             const levelToLoad = customLevels[slotIndex];
             const sizeInput = document.getElementById('editor-size-input');
@@ -3460,6 +3846,30 @@ if (sizeInput) {
                 editorGridData.push(row);
             }
             userResizing = false;
+
+            // Paint golden marked tiles if any
+            if (levelToLoad && levelToLoad.goldTiles && levelToLoad.goldTiles.length) {
+                for (const t of levelToLoad.goldTiles) {
+                    editorYellow.add(`${t.x},${t.z}`);
+                    const idxCell = t.z * editorSize + t.x;
+                    const cellEl = document.getElementById('editor-grid').children[idxCell];
+                    if (cellEl && !cellEl.classList.contains('start') && !cellEl.classList.contains('goal')) {
+                        cellEl.classList.remove('wall');
+                        cellEl.classList.add('path');
+                        cellEl.classList.add('yellow');
+                    }
+                }
+            }
+            // Paint yellow marks if any (after grid built)
+            if (levelToLoad && Array.isArray(levelToLoad.goldTiles)){
+                levelToLoad.goldTiles.forEach(m => {
+                    const key = `${m.x},${m.z}`;
+                    editorYellow.add(key);
+                    const idx = m.z * editorSize + m.x;
+                    const cellEl = document.getElementById('editor-grid').children[idx];
+                    if (cellEl){ cellEl.classList.add('yellow'); }
+                });
+            }
             // Paint landmarks if any (after grid built)
             if (levelToLoad && levelToLoad.landmarks && levelToLoad.landmarks.length) {
                 levelToLoad.landmarks.forEach(lm => {
@@ -3473,231 +3883,307 @@ if (sizeInput) {
             }
 }
         
+        
         function handleGridInteraction(e) {
             if (!isDrawing || e.buttons !== 1) return;
             const cell = e.target;
             if (!cell.classList.contains('editor-cell')) return;
-            const x = parseInt(cell.dataset.x);
-            const z = parseInt(cell.dataset.z);
+            const x = parseInt(cell.dataset.x, 10);
+            const z = parseInt(cell.dataset.z, 10);
             const grid = document.getElementById('editor-grid');
+
+            // If overwriting start/goal, clear them first
             if (editorStart.x === x && editorStart.z === z) editorStart = {};
             if (editorGoal.x === x && editorGoal.z === z) editorGoal = {};
+
+            // If placing start/goal, clear old marks in grid and set to path
             if (currentTool === 'start' && editorStart.x !== undefined) {
-                 grid.children[editorStart.z * editorSize + editorStart.x].className = 'editor-cell path';
-                 editorGridData[editorStart.z][editorStart.x] = 0;
+                const prev = editorStart;
+                if (typeof prev.x === 'number') {
+                    grid.children[prev.z * editorSize + prev.x].className = 'editor-cell path';
+                    editorGridData[prev.z][prev.x] = 0;
+                }
             }
             if (currentTool === 'goal' && editorGoal.x !== undefined) {
-                 grid.children[editorGoal.z * editorSize + editorGoal.x].className = 'editor-cell path';
-                 editorGridData[editorGoal.z][editorGoal.x] = 0;
+                const prev = editorGoal;
+                if (typeof prev.x === 'number') {
+                    grid.children[prev.z * editorSize + prev.x].className = 'editor-cell path';
+                    editorGridData[prev.z][prev.x] = 0;
+                }
             }
+
             switch (currentTool) {
                 case 'wall':
                     editorGridData[z][x] = 1;
                     cell.className = 'editor-cell wall';
                     break;
+
                 case 'path':
                     editorGridData[z][x] = 0;
                     cell.className = 'editor-cell path';
                     break;
+
                 case 'start':
                     editorGridData[z][x] = 0;
                     editorStart = { x, z };
                     cell.className = 'editor-cell start';
                     isDrawing = false;
                     break;
+
                 case 'goal':
                     editorGridData[z][x] = 0;
                     editorGoal = { x, z };
                     cell.className = 'editor-cell goal';
                     isDrawing = false;
                     break;
+
+                case 'yellow': {
+                    // toggle yellow on a walkable cell; avoid start/goal
+                    editorGridData[z][x] = 0;
+                    const keyYZ = `${x},${z}`;
+                    if (cell.classList.contains('yellow')) {
+                        cell.classList.remove('yellow');
+                        cell.classList.add('path');
+                        editorYellow.delete(keyYZ);
+                    } else {
+                        if (!(editorStart.x === x && editorStart.z === z) && !(editorGoal.x === x && editorGoal.z === z)) {
+                            cell.classList.remove('wall');
+                            cell.classList.remove('path');
+                            cell.classList.add('yellow');
+                            editorYellow.add(keyYZ);
+                        }
+                    }
+                    isDrawing = false;
+                    break;
+                }
+
                 case 'lm1':
                 case 'lm2':
                 case 'lm3':
                 case 'lm4':
-                case 'lm5':
+                case 'lm5': {
                     editorGridData[z][x] = 0; // ensure walkable
-                    const lmId = parseInt(currentTool.replace('lm',''));
-                    // clear previous of this id
+                    const lmId = parseInt(currentTool.replace('lm', ''), 10);
+                    // clear previous landmark of same id
                     if (editorLandmarks[lmId]) {
                         const prev = editorLandmarks[lmId];
-                        const prevEl = document.getElementById('editor-grid').children[prev.z * editorSize + prev.x];
+                        const prevEl = grid.children[prev.z * editorSize + prev.x];
                         if (prevEl) prevEl.className = 'editor-cell path';
                     }
-                    editorLandmarks[lmId] = {x, z};
+                    editorLandmarks[lmId] = { x, z };
                     cell.className = 'editor-cell lm' + lmId;
                     isDrawing = false;
                     break;
-            }
-        }
-        
-        function saveCustomMap() {
-            const messageEl = document.getElementById('editor-message');
-            messageEl.textContent = '';
-            const slotIndex = parseInt(document.getElementById('editor-slot-select').value);
-            if (!editorStart.hasOwnProperty('x')) {
-                messageEl.textContent = translations[currentLanguage].editor_need_start;
-                return;
-            }
-            if (!editorGoal.hasOwnProperty('x')) {
-                messageEl.textContent = translations[currentLanguage].editor_need_goal;
-                return;
-            }
-            const mazeDataForSolver = editorGridData.map(row => row.map(cell => cell === 1 ? 0 : 1));
-            const tempLevel = { grid: mazeDataForSolver, start: editorStart, goal: editorGoal };
-            if (!findShortestPath(tempLevel)) {
-                messageEl.textContent = translations[currentLanguage].editor_unsolvable;
-                return;
-            }
-            
-            // Landmarks collection (if 2..5 present consecutively -> treat as hunt)
-            const lmKeys = Object.keys(editorLandmarks).map(k => parseInt(k,10)).sort((a,b)=>a-b);
-            let lmArr = [];
-            if (lmKeys.length >= 2) {
-                // ensure consecutive from 1..N with no gaps
-                let ok = true;
-                for (let i=0;i<lmKeys.length;i++){
-                    if (lmKeys[i] !== i+1) { ok = false; break; }
                 }
-                if (ok) {
-                    lmArr = lmKeys.map(id => ({x: editorLandmarks[id].x, z: editorLandmarks[id].z, id}));
-                }
-            }
 
-
-            // Ensure landmark tiles are walkable in solver grid
-            if (lmArr.length) {
-                lmArr.forEach(({x, z}) => {
-                    if (mazeDataForSolver[z] && mazeDataForSolver[z][x] !== undefined) {
-                        mazeDataForSolver[z][x] = 1; // walkable in solver grid
-                    }
-                });
-            }
-
-            const newLevel = {
-                grid: mazeDataForSolver,
-                start: { ...editorStart, dir: 'S' },
-                goal: { ...editorGoal },
-                landmarks: lmArr,
-                hunt: lmArr.length >= 2
-            };
-            if (newLevel.start.x === 0) newLevel.start.dir = 'E';
-            else if (newLevel.start.x === editorSize - 1) newLevel.start.dir = 'W';
-            else if (newLevel.start.z === 0) newLevel.start.dir = 'S';
-            else if (newLevel.start.z === editorSize - 1) newLevel.start.dir = 'N';
-            customLevels[slotIndex] = newLevel;
-            saveCustomLevels();
-            const option = document.getElementById('editor-slot-select').options[slotIndex];
-            option.textContent = `${translations[currentLanguage].map_slot} ${slotIndex + 1}`;
-            messageEl.textContent = `${translations[currentLanguage].map_slot} ${slotIndex + 1} 已保存!`;
-            messageEl.style.color = 'green';
-            setTimeout(() => {
-                messageEl.textContent = '';
-                messageEl.style.color = 'red';
-            }, 2000);
-        }
-        
-        function deleteCustomMap() {
-            const slotIndex = parseInt(document.getElementById('editor-slot-select').value);
-            if (customLevels[slotIndex] && confirm(translations[currentLanguage].confirm_delete)) {
-                customLevels[slotIndex] = null;
-                saveCustomLevels();
-                initEditor(slotIndex);
+                default:
+                    // no-op
+                    break;
             }
         }
-        
-        function showCustomMapsModal() {
-            document.getElementById('main-menu-modal').style.display = 'none';
-            document.getElementById('custom-maps-modal').style.display = 'flex';
-            const grid = document.getElementById('custom-maps-grid');
-            grid.innerHTML = '';
-            selectedCustomMapIndex = -1;
-            document.getElementById('custom-play-btn').disabled = true;
-            document.getElementById('custom-edit-btn').disabled = true;
-            document.getElementById('custom-delete-btn').disabled = true;
-            for (let i = 0; i < MAX_CUSTOM_LEVELS; i++) {
-                const button = document.createElement('button');
-                button.dataset.index = i;
-                if (customLevels[i]) {
-                    button.textContent = `${translations[currentLanguage].map_slot} ${i + 1}`;
-                } else {
-                    button.textContent = `${i + 1} (${translations[currentLanguage].empty_slot})`;
-                    button.disabled = true;
-                }
-                grid.appendChild(button);
-            }
-            grid.onclick = (e) => {
-                if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
-                    document.querySelectorAll('#custom-maps-grid button').forEach(b => b.classList.remove('selected'));
-                    e.target.classList.add('selected');
-                    selectedCustomMapIndex = parseInt(e.target.dataset.index);
-                    document.getElementById('custom-play-btn').disabled = false;
-                    document.getElementById('custom-edit-btn').disabled = false;
-                    document.getElementById('custom-delete-btn').disabled = false;
-                }
-            };
-            document.getElementById('custom-play-btn').onclick = () => {
-                if(selectedCustomMapIndex !== -1) {
-                    document.getElementById('custom-maps-modal').style.display = 'none';
-                    document.getElementById('mode-select-modal').style.display = 'flex';
-                }
-            };
-            document.getElementById('custom-edit-btn').onclick = () => {
-                if(selectedCustomMapIndex !== -1) showEditor(selectedCustomMapIndex);
-            };
-            document.getElementById('custom-delete-btn').onclick = () => {
-                if(selectedCustomMapIndex !== -1 && confirm(translations[currentLanguage].confirm_delete)) {
-                    customLevels[selectedCustomMapIndex] = null;
-                    saveCustomLevels();
-                    showCustomMapsModal();
-                }
-            };
-            document.getElementById('custom-back-btn').onclick = () => {
-                document.getElementById('custom-maps-modal').style.display = 'none';
-                showMainMenu();
-            };
-        }
-        
-        // ====================================================================
-        // 启动 (Boot)
-        // ====================================================================
-        init();
 
-    </script>
-    <script>
-    (function(){
-      var overlay = document.getElementById('intro-overlay');
-      var video   = document.getElementById('intro-video');
-      var skip    = document.getElementById('skip-intro-btn');
-      var startup = document.getElementById('startup-modal');
-      function ensureStartVisible() {
-        if (startup && startup.style.display === 'none') {
-          startup.style.display = 'flex';
+// === Editor: save with tolerant solvability check ===
+function saveCustomMap(){
+    try{
+        const slotSelect = document.getElementById('editor-slot-select');
+        const slotIndex = parseInt(slotSelect && slotSelect.value || selectedCustomMapIndex || 0);
+        selectedCustomMapIndex = slotIndex;
+
+        const showErr = (key) => {
+            const el = document.getElementById('editor-message');
+            const txt = (translations[currentLanguage] && translations[currentLanguage][key]) || 'Invalid map.';
+            if (el) { el.style.color = 'red'; el.textContent = txt; }
+        };
+        if (!editorStart || typeof editorStart.x !== 'number') { showErr('editor_need_start'); return; }
+        if (!editorGoal || typeof editorGoal.x !== 'number') { showErr('editor_need_goal'); return; }
+
+        const size = editorSize;
+        const grid = [];
+        for (let z=0; z<size; z++){
+            const row = [];
+            for (let x=0; x<size; x++){
+                row.push(editorGridData[z][x] === 1 ? 0 : 1);
+            }
+            grid.push(row);
         }
-      }
-      function endIntro(){
-        if (!overlay) return;
-        overlay.classList.add('hidden');
-        setTimeout(function(){ overlay.remove(); ensureStartVisible(); }, 520);
-      }
-      if (skip) skip.addEventListener('click', endIntro);
-      if (video){
-        video.addEventListener('ended', endIntro);
-        video.addEventListener('error', endIntro);
-        var p = video.play && video.play();
-        if (p && typeof p.then === 'function'){
-          p.catch(function(){ video.controls = true; });
-        }
-      }
-      if (overlay){
-        overlay.addEventListener('click', function once(){
-          if (video){
-            try{ video.muted = false; video.volume = 0.6; } catch(e){}
-          }
-          overlay.removeEventListener('click', once);
+
+        let dir = 'S';
+        if (editorStart.x === 0) dir = 'E';
+        else if (editorStart.x === size-1) dir = 'W';
+        else if (editorStart.z === 0) dir = 'S';
+        else if (editorStart.z === size-1) dir = 'N';
+
+        const landmarks = Object.keys(editorLandmarks||{}).map(id => ({
+            id: parseInt(id, 10),
+            x: editorLandmarks[id].x,
+            z: editorLandmarks[id].z
+        })).sort((a,b)=>a.id-b.id);
+
+        const goldTiles = Array.from(editorYellow||[]).map(s => {
+            const [x,z] = s.split(',').map(n=>parseInt(n,10));
+            return {x,z};
         });
-      }
-    })();
-    </script>
+
+        const level = {
+            grid,
+            start: { x: editorStart.x, z: editorStart.z, dir },
+            goal: { x: editorGoal.x, z: editorGoal.z }
+        };
+
+        // Validate solvability
+        const normalOK = !!findShortestPath(level);
+        let huntOK = false;
+        if (landmarks.length) { huntOK = computeHuntOptimal(level) != null; }
+        if (!normalOK && !huntOK) { showErr('editor_unsolvable'); return; }
+        if (huntOK) { level.landmarks = landmarks; level.hunt = true; } else { level.hunt = false; }
+
+        if (goldTiles.length) { level.goldTiles = goldTiles; }
+
+        customLevels[slotIndex] = level;
+        saveCustomLevels();
+
+        const msgEl = document.getElementById('editor-message');
+        if (msgEl) {
+            msgEl.style.color = '#28a745';
+            let msg = (currentLanguage==='zh'?'已保存到槽位 ':'Saved to slot ') + String(slotIndex+1);
+            if (landmarks.length && !huntOK) {
+                msg += currentLanguage==='zh' ? '（路标顺序不连通，已保存为普通模式）' : ' (landmarks not connected; saved as normal mode)';
+            }
+            msgEl.textContent = msg;
+            setTimeout(()=>{ msgEl.textContent = ''; msgEl.style.color = 'red'; }, 1800);
+        }
+        const btn = document.getElementById('custom-mode-btn');
+        if (btn) btn.disabled = !customLevels.some(l => l !== null);
+    } catch(err){
+        console.error('saveCustomMap error:', err);
+        const msgEl = document.getElementById('editor-message');
+        if (msgEl) {
+            msgEl.style.color = 'red';
+            msgEl.textContent = (currentLanguage==='zh'?'保存失败：':'Save failed: ') + String(err);
+        }
+    }
+}
+
+// === Editor: delete current slot ===
+function deleteCustomMap(){
+    const slotSelect = document.getElementById('editor-slot-select');
+    const slotIndex = parseInt(slotSelect && slotSelect.value || selectedCustomMapIndex || 0);
+    deleteCustomMapAt(slotIndex);
+    loadEditorGrid(slotIndex);
+}
+
+// === Shared deletion helper ===
+function deleteCustomMapAt(index){
+    const msg = translations[currentLanguage] && translations[currentLanguage].confirm_delete
+        ? translations[currentLanguage].confirm_delete
+        : (currentLanguage==='zh'?'您确定要删除这张地图吗？':'Are you sure you want to delete this map?');
+    if (!confirm(msg)) return;
+    if (index >= 0 && index < customLevels.length) {
+        customLevels[index] = null;
+        saveCustomLevels();
+        const cbtn = document.getElementById('custom-mode-btn');
+        if (cbtn) { cbtn.disabled = !customLevels.some(l => l !== null); }
+    }
+}
+
+// === Custom mode browser ===
+function showCustomMapsModal(){
+    const modal = document.getElementById('custom-maps-modal');
+    const grid = document.getElementById('custom-maps-grid');
+    const playBtn = document.getElementById('custom-play-btn');
+    const editBtn = document.getElementById('custom-edit-btn');
+    const delBtn = document.getElementById('custom-delete-btn');
+    const backBtn = document.getElementById('custom-back-btn');
+
+    selectedCustomMapIndex = -1;
+    if (playBtn) playBtn.disabled = true;
+    if (editBtn) editBtn.disabled = true;
+    if (delBtn)  delBtn.disabled  = true;
+
+    grid.innerHTML = '';
+    customLevels.forEach((lv, i) => {
+        const btn = document.createElement('button');
+        btn.textContent = String(i+1);
+        btn.disabled = !lv;
+        btn.addEventListener('click', () => {
+            selectedCustomMapIndex = i;
+            Array.from(grid.children).forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            if (playBtn) playBtn.disabled = false;
+            if (editBtn) editBtn.disabled = false;
+            if (delBtn)  delBtn.disabled  = false;
+        });
+        grid.appendChild(btn);
+    });
+
+    if (!modal.dataset.bound){
+        if (playBtn) playBtn.addEventListener('click', () => {
+            if (selectedCustomMapIndex < 0) return;
+            modal.style.display = 'none';
+            document.getElementById('mode-select-modal').style.display = 'flex';
+        });
+        if (editBtn) editBtn.addEventListener('click', () => {
+            if (selectedCustomMapIndex < 0) return;
+            modal.style.display = 'none';
+            showEditor(selectedCustomMapIndex);
+        });
+        if (delBtn) delBtn.addEventListener('click', () => {
+            if (selectedCustomMapIndex < 0) return;
+            deleteCustomMapAt(selectedCustomMapIndex);
+            showCustomMapsModal();
+        });
+        if (backBtn) backBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            showMainMenu();
+        });
+        modal.dataset.bound = '1';
+    }
+
+    document.getElementById('main-menu-modal').style.display = 'none';
+    modal.style.display = 'flex';
+}
+
+
+
+// ===================== Boot & Intro Overlay =====================
+document.addEventListener('DOMContentLoaded', () => {
+    try { init(); } catch (e) { console.error('Init error:', e); }
+
+    const overlay = document.getElementById('intro-overlay');
+    const video   = document.getElementById('intro-video');
+    const skipBtn = document.getElementById('skip-intro-btn');
+    const startup = document.getElementById('startup-modal');
+
+    function showStart() {
+        if (overlay) {
+            overlay.classList.add('hidden');
+            setTimeout(() => { try { overlay.remove(); } catch(_){} }, 520);
+        }
+        if (startup) { startup.style.display = 'flex'; }
+    }
+
+    if (skipBtn) skipBtn.addEventListener('click', showStart);
+    if (video) {
+        video.addEventListener('ended', showStart);
+        video.addEventListener('error', showStart);
+        const p = (typeof video.play === 'function') && video.play();
+        if (p && typeof p.catch === 'function') {
+            p.catch(() => { video.controls = true; });
+        }
+    } else {
+        // No video found; go straight to start
+        showStart();
+    }
+
+    // Safety fallback: if overlay still present after a few seconds, remove it.
+    setTimeout(() => {
+        if (document.getElementById('intro-overlay')) {
+            console.warn('Intro overlay fallback triggered.');
+            showStart();
+        }
+    }, 4000);
+});
+
+</script>
 </body>
 </html>
