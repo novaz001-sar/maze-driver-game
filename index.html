@@ -4033,7 +4033,7 @@ function saveCustomMap(){
         // Validate solvability
         const normalOK = !!findShortestPath(level);
         let huntOK = false;
-        if (landmarks.length) { huntOK = computeHuntOptimal(level) != null; }
+        if (landmarks.length) { huntOK = computeHuntOptimal({...level, landmarks}) != null; }
         if (!normalOK && !huntOK) { showErr('editor_unsolvable'); return; }
         if (huntOK) { level.landmarks = landmarks; level.hunt = true; } else { level.hunt = false; }
 
