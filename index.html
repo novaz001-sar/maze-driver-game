@@ -3706,14 +3706,34 @@ function createMaterials() {
         function loadCustomLevels() {
             const savedLevels = localStorage.getItem('customMazeLevels');
             if (savedLevels) {
-                customLevels = JSON.parse(savedLevels);
+                try {
+                    const parsed = JSON.parse(savedLevels);
+                    const defaults = { floor: '', wallN: '', wallE: '', wallS: '', wallW: '' };
+                    customLevels = parsed.map(lv => {
+                        if (!lv) return null;
+                        if (!lv.textures) {
+                            lv.textures = { ...defaults };
+                        } else {
+                            lv.textures = { ...defaults, ...lv.textures };
+                        }
+                        return lv;
+                    });
+                } catch (e) {
+                    console.error('Failed to parse custom levels:', e);
+                    customLevels = new Array(MAX_CUSTOM_LEVELS).fill(null);
+                }
             } else {
                 customLevels = new Array(MAX_CUSTOM_LEVELS).fill(null);
             }
         }
 
         function saveCustomLevels() {
-            localStorage.setItem('customMazeLevels', JSON.stringify(customLevels));
+            const toSave = customLevels.map(lv => {
+                if (!lv) return null;
+                const { grid, start, goal, landmarks, hunt, goldTiles, textures } = lv;
+                return { grid, start, goal, landmarks, hunt, goldTiles, textures };
+            });
+            localStorage.setItem('customMazeLevels', JSON.stringify(toSave));
         }
 
         function showEditor(slotIndex = 0) {
@@ -3737,7 +3757,17 @@ function createMaterials() {
             }
             slotSelect.value = slotIndex;
             slotSelect.onchange = () => { initEditor(parseInt(slotSelect.value)); };
-            
+            // Populate texture inputs and previews if available
+            const lvl = customLevels[slotIndex];
+            const texKeys = ['floor', 'wallN', 'wallE', 'wallS', 'wallW'];
+            texKeys.forEach(key => {
+                const inputEl = document.getElementById(`editor-texture-${key}`);
+                const previewEl = document.getElementById(`editor-texture-${key}-preview`);
+                const val = lvl && lvl.textures ? (lvl.textures[key] || '') : '';
+                if (inputEl) inputEl.value = val;
+                if (previewEl) previewEl.src = val || '';
+            });
+
 const sizeInput = document.getElementById('editor-size-input');
 if (sizeInput) {
     // Prevent wheel changing number inadvertently
@@ -4029,6 +4059,15 @@ function saveCustomMap(){
             start: { x: editorStart.x, z: editorStart.z, dir },
             goal: { x: editorGoal.x, z: editorGoal.z }
         };
+
+        // Gather texture data URLs from editor inputs
+        const textureKeys = ['floor', 'wallN', 'wallE', 'wallS', 'wallW'];
+        const textures = {};
+        textureKeys.forEach(key => {
+            const inputEl = document.getElementById(`editor-texture-${key}`);
+            textures[key] = inputEl && inputEl.value ? inputEl.value : '';
+        });
+        level.textures = textures;
 
         // Validate solvability
         const normalOK = !!findShortestPath(level);
